@@ -34,7 +34,7 @@ app.add_middleware(
 
 app.include_router(users.router)
 # Create tables
-Base.metadata.create_all(bind=engine)
+#Base.metadata.create_all(bind=engine)
 
 # Register routes
 app.include_router(jobcards.router)
