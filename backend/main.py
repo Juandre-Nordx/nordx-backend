@@ -11,11 +11,14 @@ from backend.routes import jobcards, admin, auth
 from backend.routes import users
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
+from backend.routes import health
+
+
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="JobCard Pro API")
 app.include_router(admin.router)
-
+app.include_router(health.router)
 
 app.add_middleware(
     SessionMiddleware,
