@@ -3,9 +3,9 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 python-dotenv
+pydantic[email]
 python-multipart
-python-jose
-passlib[bcrypt]
 reportlab
-email-validator
+passlib[bcrypt]
+bcrypt==3.2.2
 itsdangerous
