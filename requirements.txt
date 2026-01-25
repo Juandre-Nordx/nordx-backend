@@ -9,3 +9,4 @@ reportlab
 passlib[bcrypt]
 bcrypt==3.2.2
 itsdangerous
+python-jose[cryptography]
