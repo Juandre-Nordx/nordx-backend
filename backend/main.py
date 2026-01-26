@@ -14,13 +14,15 @@ from dotenv import load_dotenv
 from backend.routes import health
 
 
+import os
+
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="JobCard Pro API")
 # 1️⃣ Sessions FIRST (required for request.session)
 app.add_middleware(
     SessionMiddleware,
-    secret_key="CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_32+_CHARS",
+    secret_key="nordx_super_secure_session_key_2026_prod",
     same_site="none",     # REQUIRED for cross-domain cookies
     https_only=True       # REQUIRED because Railway is HTTPS
 )
@@ -37,11 +39,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-
 app.include_router(admin.router)
 
+
+
+@app.get("/_debug/fs")
+def debug_fs():
+    def safe_ls(path):
+        return os.listdir(path) if os.path.exists(path) else "MISSING"
+
+    return {
+        "cwd": os.getcwd(),
+        "root": safe_ls("."),
+        "uploads": safe_ls("uploads"),
+        "signatures": safe_ls("uploads/signatures"),
+        "jobcards": safe_ls("uploads/jobcards"),
+    }
 
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
