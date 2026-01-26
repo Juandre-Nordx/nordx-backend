@@ -12,11 +12,12 @@ from backend.routes import users
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from backend.routes import health
-
-
 import os
 
-import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 os.makedirs("uploads/signatures", exist_ok=True)
 os.makedirs("uploads/jobcards", exist_ok=True)
@@ -63,7 +64,7 @@ def debug_fs():
     }
 
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 
 
 app.include_router(health.router)

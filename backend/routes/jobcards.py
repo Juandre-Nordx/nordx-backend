@@ -18,6 +18,9 @@ router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+for sub in ["before", "after", "materials", "signatures", "jobcards"]:
+    os.makedirs(os.path.join(UPLOAD_DIR, sub), exist_ok=True)
+
 # =========================
 # HELPERS
 # =========================
