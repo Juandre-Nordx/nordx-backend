@@ -105,6 +105,32 @@ async def create_jobcard(
     after_photos: list[UploadFile] | None = File(None),
     material_photos: list[UploadFile] | None = File(None),
 
+    
+def save_base64_image(data_url: str | None) -> str | None:
+    if not data_url:
+        return None
+
+    try:
+        header, encoded = data_url.split(",", 1)
+    except ValueError:
+        return None
+
+    binary = base64.b64decode(encoded)
+
+    filename = f"{uuid4().hex}.png"
+    save_path = Path("uploads/signatures") / filename
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(save_path, "wb") as f:
+        f.write(binary)
+
+    # ✅ MUST be a public URL
+    return f"/uploads/signatures/{filename}"
+    
+    
+    
+    
+    
     db: Session = Depends(get_db),
 ):
     # --------------------------------
