@@ -6,28 +6,23 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 
-# Routers
 from backend.routes import jobcards, admin, auth, users, health
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
+# ✅ POINT TO REAL UPLOAD LOCATION
+UPLOAD_DIR = Path("uploads").resolve()
 
-# ✅ CREATE APP FIRST
 app = FastAPI(title="JobCard Pro API")
 
 # ✅ ENSURE DIRECTORIES EXIST
-(UPLOAD_DIR / "signatures").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "jobcards").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "before").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "after").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "materials").mkdir(parents=True, exist_ok=True)
+for sub in ["signatures", "jobcards", "before", "after", "materials", "company"]:
+    (UPLOAD_DIR / sub).mkdir(parents=True, exist_ok=True)
 
-# ✅ MOUNT STATIC FILES AFTER app EXISTS
+# ✅ STATIC FILES (THIS WAS THE BUG)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# ✅ SESSION MIDDLEWARE FIRST
+# ✅ SESSION
 app.add_middleware(
     SessionMiddleware,
     secret_key="nordx_super_secure_session_key_2026_prod",
@@ -35,7 +30,7 @@ app.add_middleware(
     https_only=True
 )
 
-# ✅ CORS SECOND
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -55,7 +50,7 @@ app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(jobcards.router)
 
-# 🔎 DEBUG (keep this, it’s gold)
+# 🔎 DEBUG (KEEP THIS)
 @app.get("/_debug/fs")
 def debug_fs():
     def safe_ls(path):
