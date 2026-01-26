@@ -21,8 +21,14 @@ app.include_router(admin.router)
 
 
 app.add_middleware(
-    SessionMiddleware,
-    secret_key="CHANGE_THIS_TO_A_LONG_RANDOM_STRING"
+    CORSMiddleware,
+    allow_origins=[
+        "https://nordx.co.za",
+        "https://www.nordx.co.za"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # CORS (keep wide open for now)
