@@ -25,7 +25,11 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # CORS (keep wide open for now)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://nordx.co.za",            # production frontend
+        "https://www.nordx.co.za",
+        "http://localhost:5500",          # optional local dev
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
