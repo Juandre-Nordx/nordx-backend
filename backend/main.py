@@ -20,16 +20,7 @@ app = FastAPI(title="JobCard Pro API")
 app.include_router(admin.router)
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://nordx.co.za",
-        "https://www.nordx.co.za"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # CORS (keep wide open for now)
 app.add_middleware(
