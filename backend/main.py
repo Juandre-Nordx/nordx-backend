@@ -16,6 +16,12 @@ from backend.routes import health
 
 import os
 
+import os
+
+os.makedirs("uploads/signatures", exist_ok=True)
+os.makedirs("uploads/jobcards", exist_ok=True)
+
+
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="JobCard Pro API")
