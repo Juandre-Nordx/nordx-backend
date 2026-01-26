@@ -17,7 +17,7 @@ router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 # PATHS
 # =========================
 
-BASE_DIR = Path.cwd()
+BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 
 for sub in ["before", "after", "materials", "signatures", "jobcards"]:
@@ -30,36 +30,41 @@ for sub in ["before", "after", "materials", "signatures", "jobcards"]:
 def save_upload_file(file: UploadFile, folder: str) -> str:
     ext = Path(file.filename).suffix
     filename = f"{uuid.uuid4().hex}{ext}"
-    save_path = UPLOAD_DIR / folder / filename
 
+    folder_path = UPLOAD_DIR / folder
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    save_path = folder_path / filename
     with open(save_path, "wb") as f:
         f.write(file.file.read())
 
-    # ✅ RETURN PUBLIC URL
     return f"/uploads/{folder}/{filename}"
+
 
 
 def save_base64_image(data_url: str | None) -> str | None:
     if not data_url:
         return None
 
-    try:
-        header, encoded = data_url.split(",", 1)
-        ext = header.split("/")[1].split(";")[0]
-        filename = f"{uuid.uuid4().hex}.{ext}"
+    if "," not in data_url:
+        return None
 
-        save_path = UPLOAD_DIR / "signatures" / filename
+    header, encoded = data_url.split(",", 1)
+    ext = header.split("/")[1].split(";")[0]
 
-        with open(save_path, "wb") as f:
-            f.write(base64.b64decode(encoded))
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    folder = UPLOAD_DIR / "signatures"
+    folder.mkdir(parents=True, exist_ok=True)
 
-        # ✅ RETURN PUBLIC URL
-        return f"/uploads/signatures/{filename}"
+    file_path = folder / filename
+    with open(file_path, "wb") as f:
+        f.write(base64.b64decode(encoded))
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid signature data")
+    return f"/uploads/signatures/{filename}"
 
-
+        
+        
+        
 def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
     dh, dm = map(int, departure.split(":"))
