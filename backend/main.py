@@ -55,13 +55,12 @@ def debug_fs():
     return {
         "cwd": os.getcwd(),
         "root": safe_ls("."),
-        "uploads": safe_ls("uploads"),
-        "signatures": safe_ls("uploads/signatures"),
-        "jobcards": safe_ls("uploads/jobcards"),
+        "uploads": safe_ls("/data/uploads"),
+        "signatures": safe_ls("/data/uploads/signatures"),
+        "jobcards": safe_ls("/data/uploads/jobcards"),
+
     }
 
-
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 app.include_router(health.router)
