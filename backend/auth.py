@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from backend.database import SessionLocal
 from backend.models import User
 
-SECRET_KEY = "Simone"
+SECRET_KEY = "nordx_super_secure_session_key_2026_prod"
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
