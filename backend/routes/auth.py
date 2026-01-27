@@ -57,7 +57,7 @@ def require_admin(request: Request):
 #        "role": user.role
 #    }
 
-@@router.post("/login")
+@router.post("/login")
 def login(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     user = db.query(User).filter(
