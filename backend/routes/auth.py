@@ -10,7 +10,7 @@ from backend.services.auth_service import verify_password
 from backend.auth import verify_password, create_access_token
 from backend.services.email_service import send_reset_email
 
-router = APIRouter()   # 👈 IMPORTANT
+#router = APIRouter()   # 👈 IMPORTANT
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

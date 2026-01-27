@@ -62,7 +62,25 @@ def require_admin(request: Request):
         )
 
     return user
+def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
 
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
 #SUPER_ADMIN_EMAIL = "you@revenuerelay.co.za"  # ← change this
 #
 #def require_super_admin(request: Request):
