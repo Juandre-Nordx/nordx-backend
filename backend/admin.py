@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from backend.auth import get_current_user, require_admin
+from backend.auth import require_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

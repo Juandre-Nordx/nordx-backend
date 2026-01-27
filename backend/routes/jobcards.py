@@ -1,92 +1,85 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
-from pathlib import Path
-import uuid
-import base64
-import os
-
 from backend.database import get_db
 from backend.models import JobCard
 from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
 from backend.auth import get_current_user
+from backend.models import User
+from datetime import datetime
+from fastapi import Request
+from backend.routes.auth import get_current_user
+import os
+import uuid
+import base64
 
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
-# =========================
-# PATHS
-# =========================
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-
-for sub in ["before", "after", "materials", "signatures", "jobcards"]:
-    (UPLOAD_DIR / sub).mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # =========================
 # HELPERS
 # =========================
 
-def save_upload_file(file: UploadFile, folder: str) -> str:
-    ext = Path(file.filename).suffix
+def save_upload_file(upload_file: UploadFile, subfolder: str) -> str:
+    folder = os.path.join(UPLOAD_DIR, subfolder)
+    os.makedirs(folder, exist_ok=True)
+
+    ext = os.path.splitext(upload_file.filename)[1] or ".bin"
     filename = f"{uuid.uuid4().hex}{ext}"
+    disk_path = os.path.join(folder, filename)
 
-    folder_path = UPLOAD_DIR / folder
-    folder_path.mkdir(parents=True, exist_ok=True)
+    with open(disk_path, "wb") as f:
+        f.write(upload_file.file.read())
 
-    save_path = folder_path / filename
-    with open(save_path, "wb") as f:
-        f.write(file.file.read())
-
-    return f"/uploads/{folder}/{filename}"
+    upload_file.file.seek(0)
+    return f"/uploads/{subfolder}/{filename}"
 
 
-
-def save_base64_image(data_url: str | None) -> str | None:
+def save_base64_image(data_url: str, subfolder="signatures") -> str:
     if not data_url:
         return None
 
-    if "," not in data_url:
-        return None
+    if "," in data_url:
+        _, b64 = data_url.split(",", 1)
+    else:
+        b64 = data_url
 
-    header, encoded = data_url.split(",", 1)
-    ext = header.split("/")[1].split(";")[0]
+    data = base64.b64decode(b64)
 
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    folder = UPLOAD_DIR / "signatures"
-    folder.mkdir(parents=True, exist_ok=True)
+    folder = os.path.join(UPLOAD_DIR, subfolder)
+    os.makedirs(folder, exist_ok=True)
 
-    file_path = folder / filename
-    with open(file_path, "wb") as f:
-        f.write(base64.b64decode(encoded))
+    filename = f"{uuid.uuid4().hex}.png"
+    disk_path = os.path.join(folder, filename)
 
-    return f"/uploads/signatures/{filename}"
+    with open(disk_path, "wb") as f:
+        f.write(data)
 
-        
-        
-        
+    return f"/uploads/{subfolder}/{filename}"
+
+
 def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
     dh, dm = map(int, departure.split(":"))
 
-    start = ah * 60 + am
-    end = dh * 60 + dm
+    arrival_minutes = ah * 60 + am
+    departure_minutes = dh * 60 + dm
 
-    diff = (end - start) / 60
+    diff = (departure_minutes - arrival_minutes) / 60
     if diff < 0:
-        diff += 24
+        diff += 24  # overnight work
 
     return round(diff, 2)
 
 # =========================
 # CREATE JOBCARD
 # =========================
-
 @router.post("/")
 async def create_jobcard(
-    request: Request,
+     request: Request,
     current_user: dict = Depends(get_current_user),
-
     client_name: str = Form(...),
     site_address: str = Form(...),
     contact_person: str = Form(...),
@@ -95,7 +88,7 @@ async def create_jobcard(
 
     arrival_time: str = Form(...),
     departure_time: str = Form(...),
-    hours_worked: float = Form(...),  # recalculated anyway
+    hours_worked: float = Form(...),
 
     instruction_given_by: str = Form(None),
     customer_email: str = Form(None),
@@ -111,20 +104,45 @@ async def create_jobcard(
 
     db: Session = Depends(get_db),
 ):
+    # --------------------------------
+    # Company + User context
+    # --------------------------------
     company_id = current_user["company_id"]
     created_by = current_user["id"]
 
-    # 🔒 Server is source of truth
-    hours_worked = calculate_hours(arrival_time, departure_time)
+    # --------------------------------
+    # Calculate hours (server is source of truth)
+    # --------------------------------
+    try:
+        hours_worked = calculate_hours(arrival_time, departure_time)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid time format")
 
+    # --------------------------------
     # Signature
+    # --------------------------------
     signature_path = save_base64_image(signature)
 
+    # --------------------------------
     # Photos
-    before_paths = [save_upload_file(f, "before") for f in before_photos or []]
-    after_paths = [save_upload_file(f, "after") for f in after_photos or []]
-    material_paths = [save_upload_file(f, "materials") for f in material_photos or []]
+    # --------------------------------
+    before_paths, after_paths, material_paths = [], [], []
 
+    if before_photos:
+        for f in before_photos:
+            before_paths.append(save_upload_file(f, "before"))
+
+    if after_photos:
+        for f in after_photos:
+            after_paths.append(save_upload_file(f, "after"))
+
+    if material_photos:
+        for f in material_photos:
+            material_paths.append(save_upload_file(f, "materials"))
+
+    # --------------------------------
+    # Create JobCard
+    # --------------------------------
     jobcard = JobCard(
         job_number=generate_job_number(db),
 
@@ -159,9 +177,14 @@ async def create_jobcard(
     db.commit()
     db.refresh(jobcard)
 
-    # PDF
-    pdf_path = UPLOAD_DIR / "jobcards" / f"{jobcard.job_number}.pdf"
-    pdf_service.generate_jobcard_pdf(jobcard, str(pdf_path))
+    # --------------------------------
+    # Generate PDF
+    # --------------------------------
+    pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
+    os.makedirs(pdf_dir, exist_ok=True)
+
+    pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
+    pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
 
     return {
         "status": "success",
