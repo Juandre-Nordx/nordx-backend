@@ -82,7 +82,8 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
                 x = start_x
                 y -= thumb_h + padding
 
-           
+            except Exception as e:
+                print(f"[PDF] Failed to draw image {path}: {e}")
 
     return y - thumb_h - 20
 
