@@ -7,8 +7,6 @@ from pathlib import Path
 from backend.routes import auth, admin, jobcards, users, health
 import os
 
-
-
 load_dotenv()
 
 # ✅ POINT TO REAL UPLOAD LOCATION
