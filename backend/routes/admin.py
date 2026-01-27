@@ -1,35 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from backend.database import get_db
-from backend.models import JobCard
-from backend.models import Company, User
 from pathlib import Path
-from fastapi import UploadFile, File, Form
-from backend.models import Company
 import os
 import uuid
-from fastapi import APIRouter, Request, Depends
-from backend.auth import require_admin
-from backend.database import SessionLocal
-from backend.routes.auth import get_current_user, require_admin
+
+from backend.database import get_db, SessionLocal
+from backend.models import JobCard, Company, User
+from backend.auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-#router = APIRouter()
+
 UPLOAD_BASE = "/uploads"
-
-UPLOAD_DIR = Path("uploads/company")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-
-
-@router.get("/admin/jobcards")
-def list_jobcards(request: Request):
-    require_admin(request)
-
+COMPANY_UPLOAD_DIR = Path("uploads/company")
+COMPANY_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ===============================
-# Company
+# COMPANY
 # ===============================
 @router.get("/company")
 def get_company(db: Session = Depends(get_db)):
@@ -41,6 +28,7 @@ def get_company(db: Session = Depends(get_db)):
         db.refresh(company)
     return company
 
+
 @router.post("/company")
 def update_company(
     name: str = Form(...),
@@ -48,7 +36,7 @@ def update_company(
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
     logo: UploadFile = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     company = db.query(Company).first()
 
@@ -62,20 +50,20 @@ def update_company(
     company.contact_phone = contact_phone
 
     if logo:
-        os.makedirs("uploads/company", exist_ok=True)
-        filename = f"{uuid.uuid4()}_{logo.filename}"
-        path = f"uploads/company/{filename}"
+        filename = f"{uuid.uuid4().hex}{Path(logo.filename).suffix}"
+        path = COMPANY_UPLOAD_DIR / filename
 
         with open(path, "wb") as f:
             f.write(logo.file.read())
 
-        company.logo_path = "/" + path
+        company.logo_path = f"/uploads/company/{filename}"
 
     db.commit()
     return {"success": True}
 
+
 # ===============================
-# LIST ALL JOBCARDS
+# LIST JOBCARDS
 # ===============================
 @router.get("/jobcards")
 def list_jobcards(
@@ -106,6 +94,8 @@ def list_jobcards(
         for jc in jobcards
     ]
 
+
+# ===============================
 # GET SINGLE JOBCARD
 # ===============================
 @router.get("/jobcards/{jobcard_id}")
@@ -147,37 +137,42 @@ def get_jobcard(
         "material_photos": jc.material_photos or [],
         "before_photos": jc.before_photos or [],
         "after_photos": jc.after_photos or [],
-        "status": jc.status,
         "signature_path": jc.signature_path,
+        "status": jc.status,
         "created_at": jc.created_at.isoformat(),
-        "pdf": f"/uploads/jobcards/{jc.job_number}.pdf",
+        "pdf": f"{UPLOAD_BASE}/jobcards/{jc.job_number}.pdf",
     }
 
-@router.get("/debug/jobcards")
-def debug_jobcards(db: Session = Depends(get_db)):
-    jobcards = db.query(JobCard).all()
-    return [
-        {
-            "id": jc.id,
-            "job_number": jc.job_number,
-            "before_photos": jc.before_photos,
-            "after_photos": jc.after_photos,
-            "signature_path": jc.signature_path,
-        }
-        for jc in jobcards
-    ]
+
+# ===============================
+# UPDATE STATUS
+# ===============================
+@router.patch("/jobcards/{jobcard_id}/status")
+def update_jobcard_status(
+    jobcard_id: int,
+    status: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    require_admin(request)
+
+    jobcard = db.query(JobCard).filter(JobCard.id == jobcard_id).first()
+
+    if not jobcard:
+        raise HTTPException(status_code=404, detail="Job card not found")
+
+    if status not in ["submitted", "processed", "completed"]:
+        raise HTTPException(status_code=422, detail="Invalid status")
+
+    jobcard.status = status
+    db.commit()
+
+    return {"success": True, "status": status}
 
 
-    return [
-        {
-            "id": r.id,
-            "name": r.name,
-            "contact_email": r.contact_email,
-            "contact_phone": r.contact_phone,
-            "user_count": r.user_count
-        }
-        for r in results
-    ]
+# ===============================
+# SUPER ADMIN – COMPANIES
+# ===============================
 @router.get("/super/companies")
 def list_companies_with_user_count():
     db = SessionLocal()
@@ -188,7 +183,7 @@ def list_companies_with_user_count():
             Company.name,
             Company.contact_email,
             Company.contact_phone,
-            func.count(User.id).label("user_count")
+            func.count(User.id).label("user_count"),
         )
         .outerjoin(User, User.company_id == Company.id)
         .group_by(Company.id)
@@ -203,30 +198,28 @@ def list_companies_with_user_count():
             "name": r.name,
             "contact_email": r.contact_email,
             "contact_phone": r.contact_phone,
-            "user_count": r.user_count
+            "user_count": r.user_count,
         }
         for r in results
     ]
 
-    
-    
+
 @router.post("/super/companies")
 def create_company(
     name: str = Form(...),
     address: str = Form(None),
     contact_email: str = Form(None),
     contact_phone: str = Form(None),
-    logo: UploadFile = File(None)
+    logo: UploadFile = File(None),
 ):
     db = SessionLocal()
-
     logo_path = None
 
     if logo:
-        filename = f"{uuid.uuid4()}_{logo.filename}"
-        file_path = UPLOAD_DIR / filename
+        filename = f"{uuid.uuid4().hex}{Path(logo.filename).suffix}"
+        path = COMPANY_UPLOAD_DIR / filename
 
-        with open(file_path, "wb") as f:
+        with open(path, "wb") as f:
             f.write(logo.file.read())
 
         logo_path = f"/uploads/company/{filename}"
@@ -236,7 +229,7 @@ def create_company(
         address=address,
         contact_email=contact_email,
         contact_phone=contact_phone,
-        logo_path=logo_path
+        logo_path=logo_path,
     )
 
     db.add(company)
@@ -244,26 +237,4 @@ def create_company(
     db.refresh(company)
     db.close()
 
-    return {
-        "id": company.id,
-        "name": company.name
-    }
-    #status route
-@router.patch("/jobcards/{jobcard_id}/status")
-def update_jobcard_status(
-    jobcard_id: int,
-    status: str,
-    db: Session = Depends(get_db)
-):
-    jobcard = db.query(JobCard).filter(JobCard.id == jobcard_id).first()
-
-    if not jobcard:
-        raise HTTPException(status_code=404, detail="Job card not found")
-
-    if status not in ["submitted", "processed", "completed"]:
-        raise HTTPException(status_code=422, detail="Invalid status")
-
-    jobcard.status = status
-    db.commit()
-
-    return {"success": True, "status": status}
+    return {"id": company.id, "name": company.name}
