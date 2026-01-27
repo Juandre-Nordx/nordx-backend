@@ -13,7 +13,7 @@ from fastapi import Form
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-from backend.core.config import SECRET_KEY, ALGORITHM
+
 
 security = HTTPBearer()
 #router = APIRouter()   # 👈 IMPORTANT
