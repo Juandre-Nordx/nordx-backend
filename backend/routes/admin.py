@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 #router = APIRouter()
 UPLOAD_BASE = "/uploads"
 
-UPLOAD_DIR = Path("uploads/company")
+UPLOAD_DIR = Path("/data/uploads/company")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -101,7 +102,7 @@ def list_jobcards(
             "hours_worked": jc.hours_worked,
             "created_at": jc.created_at,
             "status": jc.status,
-            "pdf": f"{UPLOAD_BASE}/jobcards/{jc.job_number}.pdf",
+            "pdf": f"/admin/jobcards/{jc.id}/pdf",
         }
         for jc in jobcards
     ]
@@ -267,3 +268,30 @@ def update_jobcard_status(
     db.commit()
 
     return {"success": True, "status": status}
+
+@router.get("/jobcards/{jobcard_id}/pdf")
+def admin_get_jobcard_pdf(
+    jobcard_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    require_admin(request)
+
+    jobcard = db.query(JobCard).filter(JobCard.id == jobcard_id).first()
+    if not jobcard:
+        raise HTTPException(status_code=404, detail="Job card not found")
+
+    pdf_path = os.path.join(
+        "/data/uploads",
+        "jobcards",
+        f"{jobcard.job_number}.pdf"
+    )
+
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF missing")
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{jobcard.job_number}.pdf",
+    )

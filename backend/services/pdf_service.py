@@ -84,7 +84,7 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     company = get_company()
     c = canvas.Canvas(output_path, pagesize=A4)
     width, height = A4
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+    BASE_DIR = Path("/data")
 
     margin_x = 40
     y = height - 40

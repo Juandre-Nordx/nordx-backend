@@ -17,6 +17,8 @@ router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
 UPLOAD_DIR = "/data/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+if not os.path.exists(UPLOAD_DIR):
+    raise RuntimeError("Uploads directory not mounted — check Railway Volume")
 
 # =========================
 # HELPERS
@@ -191,3 +193,35 @@ async def create_jobcard(
         "job_number": jobcard.job_number,
         "hours_worked": hours_worked,
     }
+@router.get("/{jobcard_id}/pdf")
+def get_jobcard_pdf(
+    jobcard_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    jobcard = (
+        db.query(JobCard)
+        .filter(
+            JobCard.id == jobcard_id,
+            JobCard.company_id == current_user["company_id"],
+        )
+        .first()
+    )
+
+    if not jobcard:
+        raise HTTPException(status_code=404, detail="Job card not found")
+
+    pdf_path = os.path.join(
+        "/data/uploads",
+        "jobcards",
+        f"{jobcard.job_number}.pdf"
+    )
+
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF not generated")
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{jobcard.job_number}.pdf",
+    )
