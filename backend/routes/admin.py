@@ -23,12 +23,6 @@ UPLOAD_DIR = Path("/data/uploads/company")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
-@router.get("/admin/jobcards")
-def list_jobcards(request: Request):
-    require_admin(request)
-
-
 # ===============================
 # Company
 # ===============================
@@ -63,14 +57,15 @@ def update_company(
     company.contact_phone = contact_phone
 
     if logo:
-        os.makedirs("uploads/company", exist_ok=True)
-        filename = f"{uuid.uuid4()}_{logo.filename}"
-        path = f"uploads/company/{filename}"
+    ext = Path(logo.filename).suffix or ".png"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    file_path = UPLOAD_DIR / filename
 
-        with open(path, "wb") as f:
-            f.write(logo.file.read())
+    with file_path.open("wb") as f:
+        import shutil
+        shutil.copyfileobj(logo.file, f)
 
-        company.logo_path = "/" + path
+    company.logo_path = f"/uploads/company/{filename}"
 
     db.commit()
     return {"success": True}
@@ -151,7 +146,7 @@ def get_jobcard(
         "status": jc.status,
         "signature_path": jc.signature_path,
         "created_at": jc.created_at.isoformat(),
-        "pdf": f"/uploads/jobcards/{jc.job_number}.pdf",
+        "pdf": f"/admin/jobcards/{jc.id}/pdf",
     }
 
 @router.get("/debug/jobcards")

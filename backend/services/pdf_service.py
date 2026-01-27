@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 from io import BytesIO
 from datetime import datetime
-
+import json
 
 # ---------------------------------
 # Helpers
@@ -21,31 +21,42 @@ def get_company():
     return company
 
 
-def normalize_photo_paths(photo_field, base_dir):
-    paths = []
-
+def normalize_photo_paths(photo_field, base_dir: Path):
     if not photo_field:
-        return paths
+        return []
 
+    # Normalize input to list of strings
     if isinstance(photo_field, list):
         raw_paths = photo_field
+
     elif isinstance(photo_field, str):
-        raw_paths = [p.strip() for p in photo_field.split(",")]
+        try:
+            raw_paths = json.loads(photo_field)
+            if not isinstance(raw_paths, list):
+                raw_paths = [photo_field]
+        except Exception:
+            raw_paths = [p.strip() for p in photo_field.split(",") if p.strip()]
+
     else:
-        return paths
+        return []
+
+    resolved = []
 
     for p in raw_paths:
-        p = p.replace("\\", "/")
+        p = p.replace("\\", "/").strip()
 
-        if ":" in p:
-            path = Path(p)
+        if not p:
+            continue
+
+        # Expecting /uploads/...
+        full_path = base_dir / p.lstrip("/")
+
+        if full_path.exists():
+            resolved.append(full_path)
         else:
-            path = base_dir / p.lstrip("/")
+            print(f"[PDF] Missing image:", full_path)
 
-        if path.exists():
-            paths.append(path)
-
-    return paths
+    return resolved
 
 
 def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
@@ -71,8 +82,8 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
                 x = start_x
                 y -= thumb_h + padding
 
-        except Exception:
-            pass
+            except Exception as e:
+                print(f"[PDF] Failed to draw image {path}: {e}")
 
     return y - thumb_h - 20
 
