@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 from backend.routes import auth_api
 from backend.routes import jobcards, admin, auth, users, health
+from backend.routes import auth
 
 load_dotenv()
 
@@ -50,6 +51,7 @@ app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(jobcards.router)
 app.include_router(auth_api.router)
+app.include_router(auth.router)
 # 🔎 DEBUG (KEEP THIS)
 @app.get("/_debug/fs")
 def debug_fs():
