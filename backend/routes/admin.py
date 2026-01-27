@@ -4,7 +4,6 @@ from sqlalchemy import func
 from pathlib import Path
 import os
 import uuid
-
 from backend.database import get_db, SessionLocal
 from backend.models import JobCard, Company, User
 from backend.auth import get_current_user, require_admin

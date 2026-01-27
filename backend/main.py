@@ -4,8 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
-import os
 from backend.routes import jobcards, admin, auth, users, health
+import os
+
 
 
 load_dotenv()
