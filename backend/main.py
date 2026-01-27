@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
-
 from backend.routes import auth, admin, jobcards, users, health
 
 app = FastAPI(title="JobCard Pro API")
