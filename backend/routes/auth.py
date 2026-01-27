@@ -57,26 +57,26 @@ def require_admin(request: Request):
 #        "role": user.role
 #    }
 
-@router.post("/login")
-def login(request: Request, email: str = Form(...), password: str = Form(...)):
+@@router.post("/login")
+def login(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    user = db.query(User).filter(
+        User.email == email,
+        User.is_active == True
+    ).first()
     db.close()
 
     if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    request.session["user"] = {
-        "id": user.id,
-        "email": user.email,
+    token = create_access_token({
+        "user_id": user.id,
         "role": user.role,
         "company_id": user.company_id
-    }
-
-    print("LOGIN DEBUG → returning role:", user.role)
+    })
 
     return {
-        "ok": True,
+        "access_token": token,
         "role": user.role
     }
 

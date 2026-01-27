@@ -65,6 +65,8 @@ def get_current_user(request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+        
+
 #SUPER_ADMIN_EMAIL = "you@revenuerelay.co.za"  # ← change this
 #
 #def require_super_admin(request: Request):
