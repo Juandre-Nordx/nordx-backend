@@ -22,7 +22,7 @@ app = FastAPI(title="JobCard Pro API")
 # 1️⃣ Sessions FIRST (required for request.session)
 app.add_middleware(
     SessionMiddleware,
-    secret_key="nordx_super_secure_session_key_2026_prod",
+    secret_key=os.getenv("JWT_SECRET_KEY"),
     same_site="none",     # REQUIRED for cross-domain cookies
     https_only=True       # REQUIRED because Railway is HTTPS
 )
@@ -71,6 +71,6 @@ app.include_router(users.router)
 
 # Register routes
 app.include_router(jobcards.router)
-app.include_router(admin.router)
+
 app.include_router(auth.router)
 
