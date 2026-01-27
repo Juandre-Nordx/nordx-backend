@@ -15,7 +15,7 @@ import base64
 
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
+UPLOAD_DIR = "/data/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # =========================

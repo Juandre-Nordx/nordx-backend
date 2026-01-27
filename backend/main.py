@@ -12,7 +12,7 @@ from backend.routes import users
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from backend.routes import health
-
+from fastapi.staticfiles import StaticFiles
 
 import os
 
@@ -40,7 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(admin.router)
-
+app.mount(
+    "/uploads",
+    StaticFiles(directory="/data/uploads"),
+    name="uploads"
+)
 
 
 @app.get("/_debug/fs")
