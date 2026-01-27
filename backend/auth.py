@@ -10,6 +10,8 @@ ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is not set")
 # -------------------------
 # Password helpers
 # -------------------------
