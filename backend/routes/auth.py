@@ -10,7 +10,12 @@ from backend.services.auth_service import verify_password
 from backend.auth import verify_password, create_access_token
 from backend.services.email_service import send_reset_email
 from fastapi import Form
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
+from backend.core.config import SECRET_KEY, ALGORITHM
 
+security = HTTPBearer()
 #router = APIRouter()   # 👈 IMPORTANT
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,11 +25,18 @@ def verify_password(plain, hashed):
     return pwd_context.verify(plain, hashed)
 
 
-def get_current_user(request: Request):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def require_admin(request: Request):
@@ -34,28 +46,7 @@ def require_admin(request: Request):
     return user
 
 
-#@router.post("/login")
-#def login(request: Request, email: str = Form(...), password: str = Form(...)):
-#    db = SessionLocal()
-#    user = db.query(User).filter(User.email == email, User.is_active == True).first()
-#    db.close()
-#
-#    if not user or not verify_password(password, user.password_hash):
-#        raise HTTPException(status_code=401, detail="Invalid credentials")
-#
-#    request.session["user"] = {
-#        "id": user.id,
-#        "email": user.email,
-#        "role": user.role,
-#        "company_id": user.company_id
-#    }
-#
-#    print("LOGIN DEBUG → returning role:", user.role)
-#
-#    return {
-#        "ok": True,
-#        "role": user.role
-#    }
+
 
 @router.post("/login")
 def login(email: str = Form(...), password: str = Form(...)):
