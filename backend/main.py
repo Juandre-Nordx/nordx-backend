@@ -4,7 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
-from backend.routes import jobcards, admin, auth, users, health
+from backend.routes.jobcards import router as jobcards_router
+from backend.routes.admin import router as admin_router
+from backend.routes.auth import router as auth_router
+from backend.routes.users import router as users_router
+from backend.routes.health import router as health_router
 import os
 
 
@@ -45,11 +49,11 @@ app.add_middleware(
 )
 
 # ✅ ROUTERS
-app.include_router(health.router)
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(admin.router)
-app.include_router(jobcards.router)
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(admin_router)
+app.include_router(jobcards_router)
+app.include_router(health_router)
 
 
 # 🔎 DEBUG (KEEP THIS)
