@@ -5,7 +5,7 @@ from typing import List
 from backend.database import SessionLocal
 from backend.models import User, Company
 from backend.schemas import UserCreate, UserOut
-from backend.auth import hash_password
+from backend.routes.auth import hash_password
 
 router = APIRouter(prefix="/admin/users", tags=["Users"])
 
