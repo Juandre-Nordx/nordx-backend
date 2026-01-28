@@ -19,7 +19,8 @@ import os
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="JobCard Pro API")
- 1️⃣ Sessions FIRST (required for request.session)
+ 1️⃣
+Sessions FIRST (required for request.session)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ["SECRET_KEY"],
