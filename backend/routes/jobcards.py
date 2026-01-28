@@ -4,7 +4,6 @@ from backend.database import get_db
 from backend.models import JobCard
 from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
-from backend.auth import get_current_user
 from backend.models import User
 from datetime import datetime
 from fastapi import Request
