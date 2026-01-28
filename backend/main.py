@@ -28,7 +28,6 @@ app.add_middleware(
     https_only=True
 )
 
-
 # 2️⃣ CORS SECOND
 app.add_middleware(
     CORSMiddleware,
