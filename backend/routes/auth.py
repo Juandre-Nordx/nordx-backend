@@ -28,7 +28,9 @@ def get_current_user(request: Request):
 
 
 def require_admin(request: Request):
-    user = get_current_user(request)
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user
@@ -37,24 +39,31 @@ def require_admin(request: Request):
 @router.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
-    db.close()
+    user = (
+        db.query(User)
+        .filter(User.email == email, User.is_active == True)
+        .first()
+    )
 
     if not user or not verify_password(password, user.password_hash):
+        db.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # ✅ ONLY set session AFTER validation
     request.session["user"] = {
         "id": user.id,
         "email": user.email,
         "role": user.role,
-        "company_id": user.company_id
+        "company_id": user.company_id,
     }
+
+    db.close()
 
     print("LOGIN DEBUG → returning role:", user.role)
 
     return {
         "ok": True,
-        "role": user.role
+        "role": user.role,
     }
 
 

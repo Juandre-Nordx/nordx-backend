@@ -20,20 +20,27 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="JobCard Pro API")
  
+    secret_key=os.environ["SECRET_KEY"]
 
+    
+# 1️⃣ Sessions FIRST
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ["SECRET_KEY"],
-    same_site="none",
-    https_only=True
+     secret_key=os.environ["SECRET_KEY"],
+    same_site="lax",
+    https_only=True,
+    domain=".nordx.co.za",  # 👈 THIS LINE
 )
 
 # 2️⃣ CORS SECOND
 app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.environ["SECRET_KEY"],
-    same_site="none",
-    https_only=True,
+    CORSMiddleware,
+    allow_origins=[
+        "https://nordx.co.za",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(admin.router)
