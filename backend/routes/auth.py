@@ -8,9 +8,12 @@ from backend.database import SessionLocal
 from backend.models import User
 from backend.services.email_service import send_reset_email
 
-router = APIRouter()   # 👈 IMPORTANT
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
 
 
 def verify_password(plain, hashed):
