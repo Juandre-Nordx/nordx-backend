@@ -6,8 +6,6 @@ from fastapi import APIRouter, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
 from backend.database import SessionLocal
 from backend.models import User
-from backend.services.auth_service import verify_password
-from backend.auth import verify_password, create_access_token
 from backend.services.email_service import send_reset_email
 
 router = APIRouter()   # 👈 IMPORTANT
@@ -106,3 +104,7 @@ def reset_password(
     db.close()
 
     return {"ok": True}
+
+@router.get("/me")
+def me(request: Request):
+    return get_current_user(request)

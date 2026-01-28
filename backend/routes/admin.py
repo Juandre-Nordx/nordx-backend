@@ -11,22 +11,16 @@ from backend.models import Company
 import os
 import uuid
 from fastapi import APIRouter, Request, Depends
-from backend.auth import require_admin
 from backend.database import SessionLocal
-from backend.routes.auth import get_current_user, require_admin
+from backend.routes.auth import require_admin
+from backend.routes.auth import get_current_user
+from fastapi import Depends
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-#router = APIRouter()
 UPLOAD_BASE = "/uploads"
 
 UPLOAD_DIR = Path("/data/uploads/company")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-
-
-@router.get("/admin/jobcards")
-def list_jobcards(request: Request):
-    require_admin(request)
 
 
 # ===============================
@@ -75,37 +69,33 @@ def update_company(
     db.commit()
     return {"success": True}
 
-## ===============================
-## LIST ALL JOBCARDS
-## ===============================
-#@router.get("/jobcards")
-#def list_jobcards(
-#    request: Request,
-#    db: Session = Depends(get_db),
-#    current_user: dict = Depends(get_current_user),
-#):
-#    require_admin(request)
-#
-#    jobcards = (
-#        db.query(JobCard)
-#        .filter(JobCard.company_id == current_user["company_id"])
-#        .order_by(JobCard.created_at.desc())
-#        .all()
-#    )
-#
-#    return [
-#        {
-#            "id": jc.id,
-#            "job_number": jc.job_number,
-#            "client_name": jc.client_name,
-#            "technician_name": jc.technician_name,
-#            "hours_worked": jc.hours_worked,
-#            "created_at": jc.created_at,
-#            "status": jc.status,
-#            "pdf": f"/admin/jobcards/{jc.id}/pdf",
-#        }
-#        for jc in jobcards
-#    ]
+@router.get("/jobcards")
+def list_jobcards(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = require_admin(request)
+
+    jobcards = (
+        db.query(JobCard)
+        .filter(JobCard.company_id == user["company_id"])
+        .order_by(JobCard.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": jc.id,
+            "job_number": jc.job_number,
+            "client_name": jc.client_name,
+            "technician_name": jc.technician_name,
+            "hours_worked": jc.hours_worked,
+            "created_at": jc.created_at,
+            "status": jc.status,
+            "pdf": f"/admin/jobcards/{jc.id}/pdf",
+        }
+        for jc in jobcards
+    ]
 
 # GET SINGLE JOBCARD
 # ===============================
@@ -114,18 +104,18 @@ def get_jobcard(
     jobcard_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
-    require_admin(request)
+    user = require_admin(request)
 
     jc = (
         db.query(JobCard)
         .filter(
             JobCard.id == jobcard_id,
-            JobCard.company_id == current_user["company_id"],
+           JobCard.company_id == user["company_id"],
         )
         .first()
     )
+
 
     if not jc:
         raise HTTPException(status_code=404, detail="Jobcard not found")
