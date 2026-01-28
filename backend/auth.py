@@ -4,14 +4,12 @@ from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from backend.database import SessionLocal
 from backend.models import User
-import os
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+SECRET_KEY = "Simone"
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-if not SECRET_KEY:
-    raise RuntimeError("JWT_SECRET_KEY is not set")
 # -------------------------
 # Password helpers
 # -------------------------
@@ -33,7 +31,23 @@ def create_access_token(data: dict, expires_minutes: int = 480):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+def get_current_user(request: Request):
+    token = request.cookies.get("access_token")
 
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
 
 # -------------------------
 # Guards
@@ -48,26 +62,6 @@ def require_admin(request: Request):
         )
 
     return user
-def get_current_user(request: Request):
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-        
 
 #SUPER_ADMIN_EMAIL = "you@revenuerelay.co.za"  # ← change this
 #

@@ -193,6 +193,7 @@ async def create_jobcard(
         "job_number": jobcard.job_number,
         "hours_worked": hours_worked,
     }
+    
 @router.get("/{jobcard_id}/pdf")
 def get_jobcard_pdf(
     jobcard_id: int,

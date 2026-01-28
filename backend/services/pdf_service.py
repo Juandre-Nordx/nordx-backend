@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 from io import BytesIO
 from datetime import datetime
-import json
+
 
 # ---------------------------------
 # Helpers
@@ -21,42 +21,31 @@ def get_company():
     return company
 
 
-def normalize_photo_paths(photo_field, base_dir: Path):
-    if not photo_field:
-        return []
+def normalize_photo_paths(photo_field, base_dir):
+    paths = []
 
-    # Normalize input to list of strings
+    if not photo_field:
+        return paths
+
     if isinstance(photo_field, list):
         raw_paths = photo_field
-
     elif isinstance(photo_field, str):
-        try:
-            raw_paths = json.loads(photo_field)
-            if not isinstance(raw_paths, list):
-                raw_paths = [photo_field]
-        except Exception:
-            raw_paths = [p.strip() for p in photo_field.split(",") if p.strip()]
-
+        raw_paths = [p.strip() for p in photo_field.split(",")]
     else:
-        return []
-
-    resolved = []
+        return paths
 
     for p in raw_paths:
-        p = p.replace("\\", "/").strip()
+        p = p.replace("\\", "/")
 
-        if not p:
-            continue
-
-        # Expecting /uploads/...
-        full_path = base_dir / p.lstrip("/")
-
-        if full_path.exists():
-            resolved.append(full_path)
+        if ":" in p:
+            path = Path(p)
         else:
-            print(f"[PDF] Missing image:", full_path)
+            path = base_dir / p.lstrip("/")
 
-    return resolved
+        if path.exists():
+            paths.append(path)
+
+    return paths
 
 
 def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
@@ -82,10 +71,11 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
                 x = start_x
                 y -= thumb_h + padding
 
-        except Exception as e:
-            print(f"[PDF] Failed to draw image {path}: {e}")
+        except Exception:
+            pass
 
     return y - thumb_h - 20
+
 
 # ---------------------------------
 # Main PDF Generator
