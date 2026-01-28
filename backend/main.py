@@ -107,7 +107,7 @@ app.add_middleware(
 # -----------------------------------
 app.add_middleware(
     SessionMiddleware,
-    secret_key="CHANGE_THIS_TO_A_LONG_RANDOM_SECRET",
+    secret_key=os.environ["SECRET_KEY"],
     same_site="none",          # REQUIRED for cross-subdomain cookies
     https_only=True,           # REQUIRED for HTTPS
     domain=".nordx.co.za",     # 🔥 allows api01.nordx.co.za + nordx.co.za

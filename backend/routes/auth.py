@@ -39,34 +39,20 @@ def require_admin(request: Request):
 @router.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-    user = (
-        db.query(User)
-        .filter(User.email == email, User.is_active == True)
-        .first()
-    )
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    db.close()
 
     if not user or not verify_password(password, user.password_hash):
-        db.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # ✅ ONLY set session AFTER validation
     request.session["user"] = {
         "id": user.id,
         "email": user.email,
         "role": user.role,
-        "company_id": user.company_id,
+        "company_id": user.company_id
     }
 
-    db.close()
-
-    print("LOGIN DEBUG → returning role:", user.role)
-
-    return {
-        "ok": True,
-        "role": user.role,
-    }
-
-
+    return {"ok": True, "role": user.role}
 
 @router.post("/logout")
 def logout(request: Request):
