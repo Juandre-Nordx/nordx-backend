@@ -30,16 +30,12 @@ app.add_middleware(
 
 # 2️⃣ CORS SECOND
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://nordx.co.za",
-        "https://www.nordx.co.za",
-        "http://localhost:5500",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    SessionMiddleware,
+    secret_key=os.environ["SECRET_KEY"],
+    same_site="none",
+    https_only=True,
 )
+
 app.include_router(admin.router)
 app.mount(
     "/uploads",
