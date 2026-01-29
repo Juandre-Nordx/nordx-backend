@@ -349,7 +349,7 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     if jobcard.company.logo_path:
         logo_path = Path(jobcard.company.logo_path)
         
-      if logo_path and logo_path.exists():
+    if logo_path and logo_path.exists():
         logo = ImageReader(str(logo_path))
         c.drawImage(
             logo,
