@@ -31,7 +31,8 @@ This link expires in 1 hour.
 If you did not request this, ignore this email.
 """)
 
-   try:
+   
+    try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
