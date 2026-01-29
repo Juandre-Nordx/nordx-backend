@@ -68,16 +68,10 @@ def login(
 
 
 @router.post("/logout")
-def logout(response: Response):
-    # Clear session cookie
-    response.delete_cookie(
-        key="session",
-        path="/",
-        httponly=True,
-        samesite="lax",
-    )
+def logout(request: Request, response: Response):
+    request.session.clear()
+    response.delete_cookie("session")
     return {"status": "logged_out"}
-
 
 @router.post("/forgot-password")
 def forgot_password(email: str = Form(...)):
