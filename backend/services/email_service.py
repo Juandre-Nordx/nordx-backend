@@ -1,43 +1,51 @@
-import smtplib
 import os
-from email.message import EmailMessage
+import requests
 
-SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-EMAIL_FROM = os.getenv("EMAIL_FROM")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 RESET_URL = os.getenv("RESET_URL")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
+
+if not RESEND_API_KEY:
+    raise RuntimeError("RESEND_API_KEY not set")
+
 
 def send_reset_email(email: str, token: str):
-    if not RESET_URL:
-        raise RuntimeError("RESET_URL not set")
-
     reset_link = f"{RESET_URL}?token={token}"
 
-    msg = EmailMessage()
-    msg["Subject"] = "Password Reset – NORDX"
-    msg["From"] = EMAIL_FROM
-    msg["To"] = email
+    payload = {
+        "from": EMAIL_FROM,
+        "to": email,
+        "subject": "Reset your password – NORDX",
+        "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+            <h2>Password Reset</h2>
+            <p>You requested a password reset for your NORDX account.</p>
+            <p>
+              <a href="{reset_link}"
+                 style="display:inline-block;padding:12px 18px;
+                        background:#0f172a;color:#fff;
+                        text-decoration:none;border-radius:6px;">
+                Reset Password
+              </a>
+            </p>
+            <p>This link expires in 1 hour.</p>
+            <p>If you didn’t request this, ignore this email.</p>
+        </div>
+        """
+    }
 
-    msg.set_content(f"""
-Password Reset Request
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=10
+    )
 
-Click the link below to reset your password:
+    if response.status_code >= 400:
+        print("❌ Resend error:", response.status_code, response.text)
+        return
 
-{reset_link}
-
-This link expires in 1 hour.
-If you did not request this, ignore this email.
-""")
-
-   
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-            print("✅ PASSWORD RESET EMAIL SENT TO:", email)
-    except Exception as e:
-        print("❌ SMTP ERROR:", repr(e))
-        raise
+    print("✅ Password reset email sent via Resend to", email)

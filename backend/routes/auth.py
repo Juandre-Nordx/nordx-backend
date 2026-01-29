@@ -79,7 +79,12 @@ def logout(request: Request, response: Response):
 @router.post("/forgot-password")
 def forgot_password(email: str = Form(...)):
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+
+    user = (
+        db.query(User)
+        .filter(User.email == email, User.is_active == True)
+        .first()
+    )
 
     if not user:
         db.close()
@@ -92,7 +97,13 @@ def forgot_password(email: str = Form(...)):
     db.commit()
     db.close()
 
-    send_reset_email(email, token)
+    # 🔔 Send email (never break the flow)
+    try:
+        send_reset_email(email, token)
+    except Exception as e:
+        print("❌ Password reset email failed:", e)
+
+    # ✅ Always return success
     return {"ok": True}
 
 @router.post("/reset-password")
