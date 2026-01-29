@@ -31,11 +31,12 @@ This link expires in 1 hour.
 If you did not request this, ignore this email.
 """)
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()                 # 🔐 secure
+   try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
+            print("✅ PASSWORD RESET EMAIL SENT TO:", email)
     except Exception as e:
-        print("EMAIL SEND FAILED:", e)
+        print("❌ SMTP ERROR:", repr(e))
         raise
