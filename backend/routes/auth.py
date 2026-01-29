@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Response
 from backend.database import SessionLocal
 from backend.models import User
 from passlib.context import CryptContext
@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 from backend.database import SessionLocal
 from backend.models import User
 from backend.services.email_service import send_reset_email
-
+from uuid import uuid4
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -36,28 +37,23 @@ def require_admin(request: Request):
     return user
 
 
-@router.post("/login")
-def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    db = SessionLocal()
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
-    db.close()
+@router.post("/logout")
+def logout(request: Request, response: Response):
+    request.session.clear()  # 🔥 IMPORTANT
+    response.delete_cookie("session")
+    return {"status": "logged_out"}
 
-    if not user or not verify_password(password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    request.session["user"] = {
-        "id": user.id,
-        "email": user.email,
-        "role": user.role,
-        "company_id": user.company_id
-    }
-
-    return {"ok": True, "role": user.role}
 
 @router.post("/logout")
-def logout(request: Request):
-    request.session.clear()
-    return JSONResponse({"message": "Logged out"})
+def logout(response: Response):
+    # Clear session cookie
+    response.delete_cookie(
+        key="session",
+        path="/",
+        httponly=True,
+        samesite="lax",
+    )
+    return {"status": "logged_out"}
 
 
 @router.post("/forgot-password")
@@ -82,8 +78,13 @@ def forgot_password(email: str = Form(...)):
 @router.post("/reset-password")
 def reset_password(
     token: str = Form(...),
-    password: str = Form(...)
+    password: str = Form(...),
+    confirm_password: str = Form(...)
 ):
+    if password != confirm_password:
+        raise HTTPException(400, "Passwords do not match")
+    
+    
     db = SessionLocal()
     user = db.query(User).filter(
         User.reset_token == token,

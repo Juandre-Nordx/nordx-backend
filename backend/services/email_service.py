@@ -1,23 +1,26 @@
 import smtplib
-from email.message import EmailMessage
 import os
+from email.message import EmailMessage
 
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
+EMAIL_FROM = os.getenv("EMAIL_FROM")
 RESET_URL = os.getenv("RESET_URL")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "no-reply@localhost")
 
 def send_reset_email(email: str, token: str):
     if not RESET_URL:
-        raise RuntimeError("RESET_URL environment variable not set")
+        raise RuntimeError("RESET_URL not set")
 
     reset_link = f"{RESET_URL}?token={token}"
 
     msg = EmailMessage()
-    msg["Subject"] = "Password Reset"
+    msg["Subject"] = "Password Reset – NORDX"
     msg["From"] = EMAIL_FROM
     msg["To"] = email
 
-    msg.set_content(
-        f"""
+    msg.set_content(f"""
 Password Reset Request
 
 Click the link below to reset your password:
@@ -26,8 +29,13 @@ Click the link below to reset your password:
 
 This link expires in 1 hour.
 If you did not request this, ignore this email.
-"""
-    )
+""")
 
-    with smtplib.SMTP("localhost", 1025) as s:
-        s.send_message(msg)
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()                 # 🔐 secure
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+    except Exception as e:
+        print("EMAIL SEND FAILED:", e)
+        raise
