@@ -203,7 +203,6 @@ async def create_jobcard(
 # =========================
 # DOWNLOAD PDF
 # =========================
-
 @router.get("/{jobcard_id}/pdf")
 def get_jobcard_pdf(
     jobcard_id: int,
@@ -218,12 +217,7 @@ def get_jobcard_pdf(
         )
         .first()
     )
-    print("=== PDF CHECK ===")
-    print("CWD:", os.getcwd())
-    print("PDF path:", pdf_path)
-    print("Absolute path:", pdf_path.resolve())
-    print("Exists:", pdf_path.exists())
-    print("Parent exists:", pdf_path.parent.exists())
+
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
 
@@ -233,11 +227,41 @@ def get_jobcard_pdf(
         f"{jobcard.job_number}.pdf"
     )
 
+    # DEBUG (safe)
+    print("=== PDF CHECK ===")
+    print("CWD:", os.getcwd())
+    print("PDF path:", pdf_path)
+    print("Exists:", os.path.exists(pdf_path))
+    print("Parent exists:", os.path.exists(os.path.dirname(pdf_path)))
+
     if not os.path.exists(pdf_path):
-        raise HTTPException(status_code=404, detail="PDF not generated")
+        raise HTTPException(status_code=404, detail="PDF missing")
 
     return FileResponse(
         pdf_path,
         media_type="application/pdf",
         filename=f"{jobcard.job_number}.pdf",
     )
+# --------------------------------
+# Generate PDF (SAFE + DEBUG)
+# --------------------------------
+pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
+os.makedirs(pdf_dir, exist_ok=True)
+
+pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
+
+print("📄 Generating PDF at:", pdf_path)
+
+try:
+    pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+
+    # VERY IMPORTANT: verify it was written
+    if not os.path.exists(pdf_path):
+        raise RuntimeError("PDF function ran but file was not created")
+
+    print("✅ PDF generated successfully")
+
+except Exception as e:
+    import traceback
+    print("❌ PDF generation failed")
+    traceback.print_exc()
