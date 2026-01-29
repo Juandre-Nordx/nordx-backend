@@ -81,20 +81,32 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     # HEADER
     # =====================================================
     company = get_company_by_id(jobcard.company_id)
+    
+    print("=== PDF LOGO DEBUG ===")
+    print("Company ID:", jobcard.company_id)
+
+    if company:
+        print("Company name:", company.name)
+        print("Logo path (DB):", company.logo_path)
+    else:
+        print("Company NOT FOUND")
+
 
     if company and company.logo_path:
-        logo_path = Path(company.logo_path)
-        if logo_path.exists():
-            c.drawImage(
-                ImageReader(str(logo_path)),
-                x=40,
-                y=height - 100,
-                width=120,
-                height=60,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
+    logo_path = Path("/data") / company.logo_path.lstrip("/")
+    print("Resolved logo path:", logo_path)
+    print("Logo exists:", logo_path.exists())
 
+    if logo_path.exists():
+        c.drawImage(
+            ImageReader(str(logo_path)),
+            x=40,
+            y=height - 100,
+            width=120,
+            height=60,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
     c.setFont("Helvetica-Bold", 14)
     c.drawRightString(width - margin_x, y - 20, "JOB CARD")
 
