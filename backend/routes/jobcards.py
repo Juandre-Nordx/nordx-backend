@@ -218,7 +218,12 @@ def get_jobcard_pdf(
         )
         .first()
     )
-
+    print("=== PDF CHECK ===")
+    print("CWD:", os.getcwd())
+    print("PDF path:", pdf_path)
+    print("Absolute path:", pdf_path.resolve())
+    print("Exists:", pdf_path.exists())
+    print("Parent exists:", pdf_path.parent.exists())
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
 
