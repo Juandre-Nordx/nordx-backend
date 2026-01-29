@@ -37,11 +37,34 @@ def require_admin(request: Request):
     return user
 
 
-@router.post("/logout")
-def logout(request: Request, response: Response):
-    request.session.clear()  # 🔥 IMPORTANT
-    response.delete_cookie("session")
-    return {"status": "logged_out"}
+@router.post("/login")
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    db = SessionLocal()
+    user = (
+        db.query(User)
+        .filter(User.email == email, User.is_active == True)
+        .first()
+    )
+
+    if not user or not verify_password(password, user.password_hash):
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Store minimal safe session data
+    request.session["user"] = {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "company_id": user.company_id,
+    }
+
+    db.close()
+    return {"ok": True}
+
 
 
 @router.post("/logout")
