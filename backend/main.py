@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 
 from backend.routes import auth, admin, jobcards, users
@@ -8,6 +10,8 @@ app = FastAPI(
     title="JobCard Pro API",
     version="0.1.0"
 )
+
+UPLOAD_DIR = Path("/data/uploads")
 
 # -------------------------------------------------
 # 1️⃣ SESSIONS FIRST (required for request.session)
@@ -46,3 +50,15 @@ app.include_router(users.router)
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+# -------------------------------------------------
+# 5 Mount img to upload
+# -------------------------------------------------
+app.mount(
+    "/uploads",
+    StaticFiles(directory=UPLOAD_DIR),
+    name="uploads"
+)
+
+
+
