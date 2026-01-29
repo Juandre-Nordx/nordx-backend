@@ -63,7 +63,10 @@ def login(
     }
 
     db.close()
-    return {"ok": True}
+    return {
+    "ok": True,
+    "role": user.role
+}
 
 
 
