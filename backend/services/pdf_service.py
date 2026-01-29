@@ -14,9 +14,9 @@ from datetime import datetime
 # ---------------------------------
 # Helpers
 # ---------------------------------
-def get_company():
+def get_company_by_id(company_id: int):
     db = SessionLocal()
-    company = db.query(Company).first()
+    company = db.query(Company).filter(Company.id == company_id).first()
     db.close()
     return company
 
@@ -27,21 +27,11 @@ def normalize_photo_paths(photo_field, base_dir):
     if not photo_field:
         return paths
 
-    if isinstance(photo_field, list):
-        raw_paths = photo_field
-    elif isinstance(photo_field, str):
-        raw_paths = [p.strip() for p in photo_field.split(",")]
-    else:
-        return paths
+    raw_paths = photo_field if isinstance(photo_field, list) else [p.strip() for p in str(photo_field).split(",")]
 
     for p in raw_paths:
         p = p.replace("\\", "/")
-
-        if ":" in p:
-            path = Path(p)
-        else:
-            path = base_dir / p.lstrip("/")
-
+        path = Path(p) if ":" in p else base_dir / p.lstrip("/")
         if path.exists():
             paths.append(path)
 
@@ -59,12 +49,11 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
     for path in image_paths:
         try:
             img = Image.open(path).convert("RGB")
-            buffer = BytesIO()
-            img.save(buffer, format="PNG")
-            buffer.seek(0)
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
 
-            reader = ImageReader(buffer)
-            c.drawImage(reader, x, y - thumb_h, thumb_w, thumb_h)
+            c.drawImage(ImageReader(buf), x, y - thumb_h, thumb_w, thumb_h)
 
             x += thumb_w + padding
             if x + thumb_w > start_x + max_width:
@@ -81,7 +70,6 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
 # Main PDF Generator
 # ---------------------------------
 def generate_jobcard_pdf(jobcard, output_path: str):
-    company = get_company()
     c = canvas.Canvas(output_path, pagesize=A4)
     width, height = A4
     BASE_DIR = Path("/data")
@@ -92,22 +80,20 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     # =====================================================
     # HEADER
     # =====================================================
-    # === LOGO ===
-    logo_path = None
-    if jobcard.company and jobcard.company.logo_path:
-        logo_path = Path(jobcard.company.logo_path)
+    company = get_company_by_id(jobcard.company_id)
 
-    if logo_path and logo_path.exists():
-        logo = ImageReader(str(logo_path))
-        c.drawImage(
-            logo,
-            x=40,
-            y=height - 100,
-            width=120,
-            height=60,
-            preserveAspectRatio=True,
-            mask="auto"
-        )
+    if company and company.logo_path:
+        logo_path = Path(company.logo_path)
+        if logo_path.exists():
+            c.drawImage(
+                ImageReader(str(logo_path)),
+                x=40,
+                y=height - 100,
+                width=120,
+                height=60,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
 
     c.setFont("Helvetica-Bold", 14)
     c.drawRightString(width - margin_x, y - 20, "JOB CARD")
@@ -125,10 +111,9 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     y -= 20
 
     # =====================================================
-    # JOB META (2 COLUMN)
+    # JOB META
     # =====================================================
     c.setFont("Helvetica", 10)
-
     left_x = margin_x
     right_x = width / 2 + 10
 
@@ -166,7 +151,6 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     c.drawString(margin_x, y, "Job Description")
     y -= 15
 
-    c.setFont("Helvetica", 10)
     text = c.beginText(margin_x, y)
     for line in (jobcard.job_description or "").split("\n"):
         text.textLine(line)
@@ -174,61 +158,44 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     y = text.getY() - 20
 
     # =====================================================
-    # MATERIALS USED
+    # MATERIALS
     # =====================================================
     c.setFont("Helvetica-Bold", 11)
     c.drawString(margin_x, y, "Materials Used")
     y -= 15
 
-    c.setFont("Helvetica", 10)
-    mtext = c.beginText(margin_x, y)
-    if jobcard.materials_used:
-        for line in jobcard.materials_used.split("\n"):
-            mtext.textLine(line)
-    else:
-        mtext.textLine("None recorded.")
-    c.drawText(mtext)
-    y = mtext.getY() - 20
+    text = c.beginText(margin_x, y)
+    for line in (jobcard.materials_used or "None").split("\n"):
+        text.textLine(line)
+    c.drawText(text)
+    y = text.getY() - 20
 
     # =====================================================
-    # MATERIAL RECEIPT PHOTOS
+    # PHOTOS
     # =====================================================
-    material_paths = normalize_photo_paths(jobcard.material_photos, BASE_DIR)
-    if material_paths:
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margin_x, y, "Material Receipt Photos")
-        y -= 15
-        y = draw_photo_grid(c, material_paths, margin_x, y)
-
-    # =====================================================
-    # BEFORE / AFTER PHOTOS
-    # =====================================================
-    before_paths = normalize_photo_paths(jobcard.before_photos, BASE_DIR)
-    after_paths = normalize_photo_paths(jobcard.after_photos, BASE_DIR)
-
-    if before_paths:
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margin_x, y, "Before Photos")
-        y -= 15
-        y = draw_photo_grid(c, before_paths, margin_x, y)
-
-    if after_paths:
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(margin_x, y, "After Photos")
-        y -= 15
-        y = draw_photo_grid(c, after_paths, margin_x, y)
+    for title, photos in [
+        ("Material Receipt Photos", jobcard.material_photos),
+        ("Before Photos", jobcard.before_photos),
+        ("After Photos", jobcard.after_photos),
+    ]:
+        paths = normalize_photo_paths(photos, BASE_DIR)
+        if paths:
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(margin_x, y, title)
+            y -= 15
+            y = draw_photo_grid(c, paths, margin_x, y)
 
     # =====================================================
     # SIGNATURE
     # =====================================================
     if jobcard.signature_path:
-        sig_path = BASE_DIR / jobcard.signature_path.lstrip("/")
-        if sig_path.exists():
+        sig = BASE_DIR / jobcard.signature_path.lstrip("/")
+        if sig.exists():
             c.setFont("Helvetica-Bold", 11)
             c.drawString(margin_x, y, "Customer Signature")
             y -= 10
 
-            img = Image.open(sig_path).convert("RGBA")
+            img = Image.open(sig).convert("RGBA")
             bg = Image.new("RGB", img.size, (255, 255, 255))
             bg.paste(img, mask=img.split()[3])
 
@@ -243,11 +210,7 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     # FOOTER
     # =====================================================
     c.setFont("Helvetica", 8)
-    c.drawString(
-        margin_x,
-        20,
-        f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    )
+    c.drawString(margin_x, 20, f"Generated on {datetime.now():%Y-%m-%d %H:%M}")
     c.drawRightString(width - margin_x, 20, "Page 1 of 1")
 
     c.showPage()

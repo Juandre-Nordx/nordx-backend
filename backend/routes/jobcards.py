@@ -162,7 +162,7 @@ async def create_jobcard(
 
         print("✅ PDF generated")
 
-    except Exception as e:
+    except Exception:
         import traceback
         print("❌ PDF generation failed")
         traceback.print_exc()
