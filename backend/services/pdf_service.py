@@ -27,7 +27,9 @@ def normalize_photo_paths(photo_field, base_dir):
     if not photo_field:
         return paths
 
-    raw_paths = photo_field if isinstance(photo_field, list) else [p.strip() for p in str(photo_field).split(",")]
+    raw_paths = photo_field if isinstance(photo_field, list) else [
+        p.strip() for p in str(photo_field).split(",")
+    ]
 
     for p in raw_paths:
         p = p.replace("\\", "/")
@@ -53,7 +55,13 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
             img.save(buf, format="PNG")
             buf.seek(0)
 
-            c.drawImage(ImageReader(buf), x, y - thumb_h, thumb_w, thumb_h)
+            c.drawImage(
+                ImageReader(buf),
+                x,
+                y - thumb_h,
+                thumb_w,
+                thumb_h
+            )
 
             x += thumb_w + padding
             if x + thumb_w > start_x + max_width:
@@ -81,23 +89,24 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     # HEADER
     # =====================================================
     company = get_company_by_id(jobcard.company_id)
-    
+
     print("=== PDF LOGO DEBUG ===")
     print("Company ID:", jobcard.company_id)
+
+    logo_path = None
 
     if company:
         print("Company name:", company.name)
         print("Logo path (DB):", company.logo_path)
+
+        if company.logo_path:
+            logo_path = BASE_DIR / company.logo_path.lstrip("/")
+            print("Resolved logo path:", logo_path)
+            print("Logo exists:", logo_path.exists())
     else:
         print("Company NOT FOUND")
 
-
-    if company and company.logo_path:
-    logo_path = Path("/data") / company.logo_path.lstrip("/")
-    print("Resolved logo path:", logo_path)
-    print("Logo exists:", logo_path.exists())
-
-    if logo_path.exists():
+    if logo_path and logo_path.exists():
         c.drawImage(
             ImageReader(str(logo_path)),
             x=40,
@@ -107,6 +116,7 @@ def generate_jobcard_pdf(jobcard, output_path: str):
             preserveAspectRatio=True,
             mask="auto",
         )
+
     c.setFont("Helvetica-Bold", 14)
     c.drawRightString(width - margin_x, y - 20, "JOB CARD")
 
@@ -114,9 +124,13 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     if company:
         c.drawRightString(width - margin_x, y - 40, company.name)
         if company.contact_phone:
-            c.drawRightString(width - margin_x, y - 55, f"Tel: {company.contact_phone}")
+            c.drawRightString(
+                width - margin_x, y - 55, f"Tel: {company.contact_phone}"
+            )
         if company.contact_email:
-            c.drawRightString(width - margin_x, y - 70, f"Email: {company.contact_email}")
+            c.drawRightString(
+                width - margin_x, y - 70, f"Email: {company.contact_email}"
+            )
 
     y -= 100
     c.line(margin_x, y, width - margin_x, y)
@@ -222,7 +236,10 @@ def generate_jobcard_pdf(jobcard, output_path: str):
     # FOOTER
     # =====================================================
     c.setFont("Helvetica", 8)
-    c.drawString(margin_x, 20, f"Generated on {datetime.now():%Y-%m-%d %H:%M}")
+    c.drawString(
+        margin_x, 20,
+        f"Generated on {datetime.now():%Y-%m-%d %H:%M}"
+    )
     c.drawRightString(width - margin_x, 20, "Page 1 of 1")
 
     c.showPage()
