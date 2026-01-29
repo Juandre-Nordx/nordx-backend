@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import JobCard
 from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
-from backend.models import User
 from datetime import datetime
 from fastapi import Request
 from backend.routes.auth import get_current_user
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
 UPLOAD_DIR = "/data/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 if not os.path.exists(UPLOAD_DIR):
     raise RuntimeError("Uploads directory not mounted — check Railway Volume")
 
@@ -38,7 +39,7 @@ def save_upload_file(upload_file: UploadFile, subfolder: str) -> str:
     return f"/uploads/{subfolder}/{filename}"
 
 
-def save_base64_image(data_url: str, subfolder="signatures") -> str:
+def save_base64_image(data_url: str | None, subfolder="signatures") -> str | None:
     if not data_url:
         return None
 
@@ -77,10 +78,12 @@ def calculate_hours(arrival: str, departure: str) -> float:
 # =========================
 # CREATE JOBCARD
 # =========================
+
 @router.post("/")
 async def create_jobcard(
-     request: Request,
+    request: Request,
     current_user: dict = Depends(get_current_user),
+
     client_name: str = Form(...),
     site_address: str = Form(...),
     contact_person: str = Form(...),
@@ -112,7 +115,7 @@ async def create_jobcard(
     created_by = current_user["id"]
 
     # --------------------------------
-    # Calculate hours (server is source of truth)
+    # Calculate hours
     # --------------------------------
     try:
         hours_worked = calculate_hours(arrival_time, departure_time)
@@ -179,20 +182,28 @@ async def create_jobcard(
     db.refresh(jobcard)
 
     # --------------------------------
-    # Generate PDF
+    # Generate PDF (SAFE)
     # --------------------------------
     pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
     os.makedirs(pdf_dir, exist_ok=True)
 
     pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
-    pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+
+    try:
+        pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+    except Exception as e:
+        print("❌ PDF generation failed:", e)
 
     return {
         "status": "success",
         "job_number": jobcard.job_number,
         "hours_worked": hours_worked,
     }
-    
+
+# =========================
+# DOWNLOAD PDF
+# =========================
+
 @router.get("/{jobcard_id}/pdf")
 def get_jobcard_pdf(
     jobcard_id: int,
@@ -212,7 +223,7 @@ def get_jobcard_pdf(
         raise HTTPException(status_code=404, detail="Job card not found")
 
     pdf_path = os.path.join(
-        "/data/uploads",
+        UPLOAD_DIR,
         "jobcards",
         f"{jobcard.job_number}.pdf"
     )
