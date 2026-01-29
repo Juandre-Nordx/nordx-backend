@@ -5,7 +5,6 @@ from backend.database import get_db
 from backend.models import JobCard
 from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
-from datetime import datetime
 from fastapi import Request
 from backend.routes.auth import get_current_user
 import os
@@ -66,12 +65,9 @@ def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
     dh, dm = map(int, departure.split(":"))
 
-    arrival_minutes = ah * 60 + am
-    departure_minutes = dh * 60 + dm
-
-    diff = (departure_minutes - arrival_minutes) / 60
+    diff = ((dh * 60 + dm) - (ah * 60 + am)) / 60
     if diff < 0:
-        diff += 24  # overnight work
+        diff += 24
 
     return round(diff, 2)
 
@@ -92,7 +88,6 @@ async def create_jobcard(
 
     arrival_time: str = Form(...),
     departure_time: str = Form(...),
-    hours_worked: float = Form(...),
 
     instruction_given_by: str = Form(None),
     customer_email: str = Form(None),
@@ -108,72 +103,43 @@ async def create_jobcard(
 
     db: Session = Depends(get_db),
 ):
-    # --------------------------------
-    # Company + User context
-    # --------------------------------
     company_id = current_user["company_id"]
     created_by = current_user["id"]
 
-    # --------------------------------
-    # Calculate hours
-    # --------------------------------
-    try:
-        hours_worked = calculate_hours(arrival_time, departure_time)
-    except Exception:
-        raise HTTPException(status_code=422, detail="Invalid time format")
-
-    # --------------------------------
-    # Signature
-    # --------------------------------
+    hours_worked = calculate_hours(arrival_time, departure_time)
     signature_path = save_base64_image(signature)
 
-    # --------------------------------
-    # Photos
-    # --------------------------------
     before_paths, after_paths, material_paths = [], [], []
 
-    if before_photos:
-        for f in before_photos:
-            before_paths.append(save_upload_file(f, "before"))
+    for f in before_photos or []:
+        before_paths.append(save_upload_file(f, "before"))
 
-    if after_photos:
-        for f in after_photos:
-            after_paths.append(save_upload_file(f, "after"))
+    for f in after_photos or []:
+        after_paths.append(save_upload_file(f, "after"))
 
-    if material_photos:
-        for f in material_photos:
-            material_paths.append(save_upload_file(f, "materials"))
+    for f in material_photos or []:
+        material_paths.append(save_upload_file(f, "materials"))
 
-    # --------------------------------
-    # Create JobCard
-    # --------------------------------
     jobcard = JobCard(
         job_number=generate_job_number(db),
-
         company_id=company_id,
         created_by=created_by,
-
         client_name=client_name,
         site_address=site_address,
         contact_person=contact_person,
         contact_number=contact_number,
         technician_name=technician_name,
-
         arrival_time=arrival_time,
         departure_time=departure_time,
         hours_worked=hours_worked,
-
         instruction_given_by=instruction_given_by,
         customer_email=customer_email,
-
         job_description=job_description,
         materials_used=materials_used,
-
         signature_path=signature_path,
         before_photos=before_paths,
         after_photos=after_paths,
         material_photos=material_paths,
-
         status="submitted",
     )
 
@@ -181,18 +147,25 @@ async def create_jobcard(
     db.commit()
     db.refresh(jobcard)
 
-    # --------------------------------
-    # Generate PDF (SAFE)
-    # --------------------------------
+    # -------- PDF GENERATION (ONLY PLACE IT BELONGS) --------
     pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
     os.makedirs(pdf_dir, exist_ok=True)
 
     pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
 
     try:
+        print("📄 Generating PDF:", pdf_path)
         pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+
+        if not os.path.exists(pdf_path):
+            raise RuntimeError("PDF not created")
+
+        print("✅ PDF generated")
+
     except Exception as e:
-        print("❌ PDF generation failed:", e)
+        import traceback
+        print("❌ PDF generation failed")
+        traceback.print_exc()
 
     return {
         "status": "success",
@@ -203,6 +176,7 @@ async def create_jobcard(
 # =========================
 # DOWNLOAD PDF
 # =========================
+
 @router.get("/{jobcard_id}/pdf")
 def get_jobcard_pdf(
     jobcard_id: int,
@@ -227,13 +201,6 @@ def get_jobcard_pdf(
         f"{jobcard.job_number}.pdf"
     )
 
-    # DEBUG (safe)
-    print("=== PDF CHECK ===")
-    print("CWD:", os.getcwd())
-    print("PDF path:", pdf_path)
-    print("Exists:", os.path.exists(pdf_path))
-    print("Parent exists:", os.path.exists(os.path.dirname(pdf_path)))
-
     if not os.path.exists(pdf_path):
         raise HTTPException(status_code=404, detail="PDF missing")
 
@@ -242,26 +209,3 @@ def get_jobcard_pdf(
         media_type="application/pdf",
         filename=f"{jobcard.job_number}.pdf",
     )
-# --------------------------------
-# Generate PDF (SAFE + DEBUG)
-# --------------------------------
-pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
-os.makedirs(pdf_dir, exist_ok=True)
-
-pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
-
-print("📄 Generating PDF at:", pdf_path)
-
-try:
-    pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
-
-    # VERY IMPORTANT: verify it was written
-    if not os.path.exists(pdf_path):
-        raise RuntimeError("PDF function ran but file was not created")
-
-    print("✅ PDF generated successfully")
-
-except Exception as e:
-    import traceback
-    print("❌ PDF generation failed")
-    traceback.print_exc()
