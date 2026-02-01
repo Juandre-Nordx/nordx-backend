@@ -136,5 +136,10 @@ def reset_password(
     return {"ok": True}
 
 @router.get("/me")
-def me(request: Request):
-    return get_current_user(request)
+def me(current_user: dict = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "company_id": current_user["company_id"],
+    }

@@ -7,6 +7,8 @@ from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
 from fastapi import Request
 from backend.routes.auth import get_current_user
+from backend.services.email_service import send_jobcard_email
+from backend.models import Company
 import os
 import uuid
 import base64
@@ -172,6 +174,25 @@ async def create_jobcard(
         "job_number": jobcard.job_number,
         "hours_worked": hours_worked,
     }
+    
+    # --------------------------------
+    # EMAIL PDF TO COMPANY
+    # --------------------------------
+    company = db.query(Company).filter(Company.id == company_id).first()
+
+    if company and company.email:
+        try:
+            send_jobcard_email(
+                to_email=company.email,
+                company_name=company.name,
+                job_number=jobcard.job_number,
+                pdf_path=pdf_path,
+            )
+        except Exception as e:
+            print("❌ Failed to send jobcard email:", e)
+    else:
+        print("⚠️ No company email configured — skipping email")
+
 
 # =========================
 # DOWNLOAD PDF
