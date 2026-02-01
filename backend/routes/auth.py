@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request, HTTPException, Response
+from fastapi import APIRouter, Request, HTTPException, Response, Depends
+
 from backend.database import SessionLocal
 from backend.models import User
 from passlib.context import CryptContext
