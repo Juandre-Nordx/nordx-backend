@@ -34,7 +34,6 @@ def list_users(
     current_user=Depends(require_super),
     db: Session = Depends(get_db)
 ):
-    return db.query(User).all()
     users = (
         db.query(User)
         .filter(User.company_id == current_user["company_id"])
@@ -44,13 +43,15 @@ def list_users(
     return [
         {
             "id": u.id,
+            "name": u.name,
             "email": u.email,
             "role": u.role,
+            "company_id": u.company_id,
             "is_active": u.is_active,
-            "created_at": u.created_at,
         }
         for u in users
     ]
+
 
 
 @router.get("/companies")

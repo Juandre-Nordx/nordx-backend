@@ -17,12 +17,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def require_super(request: Request):
     user = request.session.get("user")
     if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(401)
 
     if user["role"] != "super":
-        raise HTTPException(status_code=403, detail="Super only")
+        raise HTTPException(403)
 
     return user
+
 
 
 def hash_password(password: str) -> str:
