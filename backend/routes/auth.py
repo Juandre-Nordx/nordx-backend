@@ -14,13 +14,13 @@ from datetime import datetime, timedelta
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def require_super_admin(request: Request):
+def require_super(request: Request):
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     if user["role"] != "super":
-        raise HTTPException(status_code=403, detail="Super admin only")
+        raise HTTPException(status_code=403, detail="Super only")
 
     return user
 

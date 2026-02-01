@@ -7,7 +7,7 @@ from backend.models import User, Company
 from backend.schemas import UserCreate, UserOut
 from backend.routes.auth import hash_password
 from backend.database import get_db
-from backend.routes.auth import require_super_admin
+from backend.routes.auth import require_super
 router = APIRouter(prefix="/admin/users", tags=["Users"])
 
 
@@ -31,11 +31,10 @@ def get_db():
 #    return users
 @router.get("/")
 def list_users(
-    request: Request,
-    db: Session = Depends(get_db),
+    current_user=Depends(require_super),
+    db: Session = Depends(get_db)
 ):
-    current_user = require_super_admin(request)
-
+    return db.query(User).all()
     users = (
         db.query(User)
         .filter(User.company_id == current_user["company_id"])
@@ -145,3 +144,16 @@ def activate_user(
     return {"status": "active", "user_id": user_id}
 
 
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: int,
+    current_user=Depends(require_super),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(404)
+
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
