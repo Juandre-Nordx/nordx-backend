@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -6,7 +6,8 @@ from backend.database import SessionLocal
 from backend.models import User, Company
 from backend.schemas import UserCreate, UserOut
 from backend.routes.auth import hash_password
-
+from backend.database import get_db
+from backend.routes.auth import require_super_admin
 router = APIRouter(prefix="/admin/users", tags=["Users"])
 
 
@@ -24,10 +25,34 @@ def get_db():
 # -----------------------------
 # GET: list users
 # -----------------------------
-@router.get("/", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-    return users
+#@router.get("/", response_model=List[UserOut])
+#def list_users(db: Session = Depends(get_db)):
+#    users = db.query(User).all()
+#    return users
+@router.get("/")
+def list_users(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    current_user = require_super_admin(request)
+
+    users = (
+        db.query(User)
+        .filter(User.company_id == current_user["company_id"])
+        .all()
+    )
+
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at,
+        }
+        for u in users
+    ]
+
 
 @router.get("/companies")
 def list_companies(db: Session = Depends(get_db)):
@@ -64,4 +89,59 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+@router.post("/{user_id}/pause")
+def pause_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    current_user = require_super_admin(request)
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.company_id == current_user["company_id"],
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if user.role == "super":
+        raise HTTPException(400, "Cannot pause super admin")
+
+    user.is_active = False
+    db.commit()
+
+    return {"status": "paused", "user_id": user_id}
+
+
+@router.post("/{user_id}/activate")
+def activate_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    current_user = require_super_admin(request)
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.company_id == current_user["company_id"],
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    user.is_active = True
+    db.commit()
+
+    return {"status": "active", "user_id": user_id}
+
 
