@@ -32,13 +32,16 @@ def get_db():
 @router.get("/")
 def list_users(
     current_user=Depends(require_super),
-    db: Session = Depends(get_db)
+    company_id: int | None = None,
+    db: Session = Depends(get_db),
 ):
-    users = (
-        db.query(User)
-        .filter(User.company_id == current_user["company_id"])
-        .all()
-    )
+    query = db.query(User)
+
+    # Optional filter (from UI)
+    if company_id is not None:
+        query = query.filter(User.company_id == company_id)
+
+    users = query.all()
 
     return [
         {
@@ -51,7 +54,6 @@ def list_users(
         }
         for u in users
     ]
-
 
 
 @router.get("/companies")
