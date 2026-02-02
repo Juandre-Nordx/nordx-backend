@@ -70,7 +70,32 @@ def create_user(
     current_user=Depends(require_super),
     db: Session = Depends(get_db),
 ):
+    existing = db.query(User).filter(User.email == user.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already exists")
 
+    if user.company_id:
+        company = db.query(Company).filter(Company.id == user.company_id).first()
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+    if not user.password or len(user.password) < 6:
+        raise HTTPException(status_code=400, detail="Password too short")
+
+    new_user = User(
+        name=user.name,
+        email=user.email,
+        password_hash=hash_password(user.password),
+        role=user.role,
+        company_id=user.company_id,
+        is_active=True,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
 @router.post("/{user_id}/pause")
 def pause_user(
     user_id: int,
