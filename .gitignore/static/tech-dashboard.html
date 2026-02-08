@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NORDX | Technician Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #1e293b;
+      --light: #f8fafc;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #64748b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--light);
+      color: var(--primary);
+    }
+
+    /* HEADER */
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    header button {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    header button:hover {
+      opacity: 0.9;
+    }
+
+    /* MAIN */
+    main {
+      padding: 40px 24px;
+      max-width: 960px;
+      margin: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 14px 30px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .card p {
+      margin: 0 0 18px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .card a {
+      display: inline-block;
+      text-decoration: none;
+      background: var(--primary);
+      color: white;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .card a:hover {
+      background: #020617;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 48px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>Technician Dashboard</h1>
+    <span>NORDX · Field Operations</span>
+  </div>
+
+  <button onclick="logout()">Logout</button>
+</header>
+
+<main>
+
+  <div class="grid">
+
+    <!-- Create Job Card -->
+    <div class="card">
+      <div>
+        <h2>📝 New Job Card</h2>
+        <p>
+          Capture job details, photos, materials, and client approval.
+          This becomes the official service record.
+        </p>
+      </div>
+      <a href="/static/jobcard.html">Create Job Card</a>
+    </div>
+
+    <!-- Submitted Jobs (V2) -->
+    <div class="card">
+      <div>
+        <h2>📂 My Submitted Jobs</h2>
+        <p>
+          View job cards you’ve already submitted and track their status.
+          (Available in V2)
+        </p>
+      </div>
+      <a href="#" onclick="alert('Coming in V2')">View Submissions</a>
+    </div>
+
+  </div>
+
+  <footer>
+    © 2026 NORDX · Less paper. More control.
+  </footer>
+
+</main>
+
+<script>
+const API_BASE = "https://api01.nordx.co.za";
+
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (e) {
+      console.warn("Logout failed", e);
+    } finally {
+      window.location.replace("/static/login.html");
+    }
+  }
+</script>
+
+</body>
+</html>

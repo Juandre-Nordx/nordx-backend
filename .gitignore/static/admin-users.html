@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NORDX | User Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #2563eb;
+      --danger: #b91c1c;
+      --success: #15803d;
+      --light: #f8fafc;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--light);
+      color: var(--primary);
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 40px auto;
+      background: var(--card);
+      padding: 28px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    h2 {
+      margin-top: 40px;
+      font-size: 18px;
+    }
+
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--primary);
+      color: white;
+    }
+
+    tr.inactive td {
+      color: #94a3b8;
+      background: #f1f5f9;
+    }
+
+    .status {
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .active {
+      color: var(--success);
+    }
+
+    .paused {
+      color: var(--danger);
+    }
+
+    .actions button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      margin-right: 6px;
+    }
+
+    .pause { background: #f59e0b; color: white; }
+    .activate { background: var(--success); color: white; }
+    .delete { background: var(--danger); color: white; }
+
+    form {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    input, select {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    button.primary {
+      grid-column: span 2;
+      padding: 14px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin: 40px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>User Management</h1>
+    <span>NORDX · Super Admin Panel</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <p class="note">
+    Create users, assign roles, and control account access.
+  </p>
+
+  <!-- USERS TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Company</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="usersTable"></tbody>
+  </table>
+
+  <!-- ADD USER -->
+  <h2>Add New User</h2>
+
+  <form id="userForm">
+    <input id="name" placeholder="Full Name" required />
+    <input id="email" type="email" placeholder="Email Address" required />
+    <input id="password" type="password" placeholder="Password" required />
+    <select id="role">
+      <option value="technician">Technician</option>
+      <option value="admin">Admin</option>
+      <option value="office">Office</option>
+      <option value="super">Super</option>
+    </select>
+    <select id="company_id"></select>
+
+    <button class="primary" type="submit">Create User</button>
+  </form>
+
+</div>
+
+<footer>
+  © 2026 NORDX · Operational Software & Technology Systems
+</footer>
+
+<script>
+const API_BASE = "https://api01.nordx.co.za";
+loadCompanies();
+loadUsers();
+///* AUTH CHECK (login only) */
+//(async () => {
+//  const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+//  if (!res.ok) window.location.href = "/static/login.html";
+//  loadCompanies();
+//  loadUsers();
+//})();
+
+/* LOAD COMPANIES */
+async function loadCompanies() {
+  const res = await fetch(`${API_BASE}/admin/users/companies`, { credentials: "include" });
+  const companies = await res.json();
+  const select = document.getElementById("company_id");
+
+  select.innerHTML = `<option value="">Select company</option>`;
+  companies.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.name} (ID ${c.id})`;
+    select.appendChild(opt);
+  });
+}
+
+/* LOAD USERS */
+async function loadUsers() {
+  const table = document.getElementById("usersTable");
+  table.innerHTML = "";
+
+  const res = await fetch(`${API_BASE}/admin/users/`, { credentials: "include" });
+  const users = await res.json();
+
+  users.forEach(u => {
+    const tr = document.createElement("tr");
+    if (!u.is_active) tr.classList.add("inactive");
+
+    tr.innerHTML = `
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td>${u.role}</td>
+      <td>${u.company_id ?? "-"}</td>
+      <td class="status ${u.is_active ? "active" : "paused"}">
+        ${u.is_active ? "Active" : "Paused"}
+      </td>
+      <td class="actions">
+        ${
+          u.is_active
+            ? `<button class="pause" onclick="pauseUser(${u.id})">Pause</button>`
+            : `<button class="activate" onclick="activateUser(${u.id})">Activate</button>`
+        }
+        <button class="delete" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+/* ACTIONS */
+async function pauseUser(id) {
+  if (!confirm("Pause this user?")) return;
+  await fetch(`${API_BASE}/admin/users/${id}/pause`, { method: "POST", credentials: "include" });
+  loadUsers();
+}
+
+async function activateUser(id) {
+  await fetch(`${API_BASE}/admin/users/${id}/activate`, { method: "POST", credentials: "include" });
+  loadUsers();
+}
+
+async function deleteUser(id) {
+  if (!confirm("Delete this user permanently?")) return;
+  await fetch(`${API_BASE}/admin/users/${id}`, { method: "DELETE", credentials: "include" });
+  loadUsers();
+}
+
+/* CREATE USER */
+document.getElementById("userForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const nameEl = document.getElementById("name");
+  const emailEl = document.getElementById("email");
+  const passwordEl = document.getElementById("password");
+  const roleEl = document.getElementById("role");
+  const companyEl = document.getElementById("company_id");
+
+  const payload = {
+    name: nameEl.value.trim(),
+    email: emailEl.value.trim(),
+    password: passwordEl.value,
+    role: roleEl.value,
+    company_id: companyEl.value ? Number(companyEl.value) : null
+  };
+
+  await fetch(`${API_BASE}/admin/users/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "include"
+  });
+
+  e.target.reset();
+  loadUsers();
+});
+</script>
+
+</body>
+</html>

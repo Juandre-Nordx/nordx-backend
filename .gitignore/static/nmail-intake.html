@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NORDX – Submit Request</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 24px auto;
+      padding: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 22px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: bold;
+      margin-top: 14px;
+      display: block;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .row > div {
+      flex: 1;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+
+    <h1>Submit a Request</h1>
+
+    <!-- Type Selector -->
+    <label for="type">Request Type</label>
+    <select id="type" onchange="toggleForms()">
+      <option value="">Select type…</option>
+      <option value="incident">Incident</option>
+      <option value="job">Job Request</option>
+      <option value="quote">Quote Request</option>
+      <option value="complaint">Complaint</option>
+    </select>
+
+    <!-- Common Fields -->
+    <div id="common" class="hidden">
+      <label>Your Name</label>
+      <input type="text" placeholder="Optional">
+
+      <label>Contact Number</label>
+      <input type="tel" placeholder="Optional">
+
+      <label>Location / Site</label>
+      <input type="text" placeholder="Gate A, Block C, Tower 3">
+
+      <label>Attachments</label>
+      <input type="file" multiple="">
+      <div class="hint">Photos or documents (optional)</div>
+    </div>
+
+    <!-- INCIDENT -->
+    <div id="incident" class="hidden">
+      <label>Incident Category</label>
+      <select>
+        <option>Suspicious Activity</option>
+        <option>Damage</option>
+        <option>Break-in</option>
+        <option>Other</option>
+      </select>
+
+      <label>Incident Description</label>
+      <textarea placeholder="What happened?"></textarea>
+
+      <label>Is this urgent?</label>
+      <select>
+        <option>No</option>
+        <option>Yes – Immediate Attention Required</option>
+      </select>
+    </div>
+
+    <!-- JOB REQUEST -->
+    <div id="job" class="hidden">
+      <label>Job Description</label>
+      <textarea placeholder="Describe the work required"></textarea>
+
+      <label>Preferred Date</label>
+      <input type="date">
+    </div>
+
+    <!-- QUOTE -->
+    <div id="quote" class="hidden">
+      <label>Service Required</label>
+      <textarea placeholder="What would you like quoted?"></textarea>
+
+      <label>Budget Range (Optional)</label>
+      <input type="text" placeholder="Optional">
+    </div>
+
+    <!-- COMPLAINT -->
+    <div id="complaint" class="hidden">
+      <label>Complaint Subject</label>
+      <input type="text" placeholder="Short summary">
+
+      <label>Complaint Details</label>
+      <textarea placeholder="Describe the issue"></textarea>
+    </div>
+
+    <button type="submit">Submit</button>
+
+  </div>
+</div>
+
+<script>
+  function toggleForms() {
+    const type = document.getElementById("type").value;
+
+    const sections = ["common", "incident", "job", "quote", "complaint"];
+    sections.forEach(id => {
+      document.getElementById(id).classList.add("hidden");
+    });
+
+    if (type) {
+      document.getElementById("common").classList.remove("hidden");
+      document.getElementById(type).classList.remove("hidden");
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard | NORDX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #1e293b;
+      --light: #f8fafc;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #64748b;
+      --danger: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--light);
+      color: var(--primary);
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    header button {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    header button:hover {
+      opacity: 0.9;
+    }
+
+    main {
+      padding: 36px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 28px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .card h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+    }
+
+    .card p {
+      margin: 0 0 18px 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .card a {
+      text-decoration: none;
+      background: var(--primary);
+      color: white;
+      padding: 11px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .card a:hover {
+      background: #020617;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 48px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div>
+      <h1>Admin Dashboard</h1>
+      <span>NORDX · Company Administration</span>
+    </div>
+
+    <button onclick="logout()">Logout</button>
+  </header>
+
+  <main>
+    <div class="grid">
+
+      <!-- Job Cards -->
+      <div class="card">
+        <div>
+          <h2>📘 Job Cards</h2>
+          <p>
+            View, manage, and audit all company job cards and
+            operational records.
+          </p>
+        </div>
+        <a href="/static/admin-jobcards.html">Open Job Cards</a>
+      </div>
+
+      <!-- Company Settings -->
+      <div class="card">
+        <div>
+          <h2>🏢 Company Settings</h2>
+          <p>
+            Manage company details, branding, and contact information
+            used across NORDX systems.
+          </p>
+        </div>
+        <a href="/static/company.html">Company Settings</a>
+      </div>
+
+    </div>
+
+    <footer>
+      © 2026 NORDX · Operational Software & Technology Systems
+    </footer>
+  </main>
+
+  <script>
+  const API_BASE = "https://api01.nordx.co.za";
+
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (e) {
+      console.warn("Logout failed:", e);
+    } finally {
+      // Always redirect
+      window.location.replace("/static/login.html");
+    }
+  }
+  </script>
+
+</body>
+</html>

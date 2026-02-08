@@ -5,36 +5,56 @@ from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 
 from backend.routes import auth, admin, jobcards, users
+import os
 
+ENV = os.getenv("ENVIRONMENT", "production")
 app = FastAPI(
-    title="JobCard Pro API",
+    title="JobCard Pro API (BETA)" if ENV == "beta" else "JobCard Pro API",
     version="0.1.0"
 )
 
+
 UPLOAD_DIR = Path("/data/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------------------------
 # 1️⃣ SESSIONS FIRST (required for request.session)
 # -------------------------------------------------
+SESSION_DOMAIN = ".nordx.co.za" if ENV in ("beta", "production") else None
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key="CHANGE_THIS_TO_A_LONG_RANDOM_SECRET",
-    same_site="lax",      # important
-    https_only=True       # REQUIRED for production
+    secret_key=os.getenv("SESSION_SECRET", "dev-secret"),
+    same_site="none",
+    https_only=True,
+    domain=SESSION_DOMAIN,
+    max_age=60 * 60 * 12,  # 12 hours
 )
+
 
 # -------------------------------------------------
 # 2️⃣ CORS SECOND
 # -------------------------------------------------
+
+
+ALLOWED_ORIGINS = [
+    "https://nordx.co.za",
+    "https://api01.nordx.co.za",
+]
+
+if ENV == "beta":
+    ALLOWED_ORIGINS.extend([
+        "https://beta.nordx.co.za",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://nordx.co.za",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # -------------------------------------------------
 # 3️⃣ ROUTES
@@ -47,9 +67,13 @@ app.include_router(users.router)
 # -------------------------------------------------
 # 4️⃣ HEALTH CHECK (Railway likes this)
 # -------------------------------------------------
-@app.get("/")
-def root():
-    return {"status": "ok"}
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "environment": ENV
+    }
+
 
 # -------------------------------------------------
 # 5 Mount img to upload

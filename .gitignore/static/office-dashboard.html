@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NORDX | Office Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+  <h1>Office Dashboard</h1>
+  <p id="status">Loading…</p>
+
+  <script>
+    const API_BASE = "https://api01.nordx.co.za";
+
+    async function loadOffice() {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          credentials: "include"
+        });
+
+        if (!res.ok) {
+          throw new Error("Not authenticated");
+        }
+
+        const data = await res.json();
+
+        console.log("OFFICE /me:", data);
+
+        if (data.role !== "office" && data.role !== "admin" && data.role !== "super_admin") {
+          throw new Error("Role not allowed here");
+        }
+
+        document.getElementById("status").innerHTML = `
+          ✅ Office Access Granted<br>
+          Role: <strong>${data.role}</strong><br>
+          Company ID: ${data.company_id}
+        `;
+
+      } catch (err) {
+        console.error("OFFICE ACCESS DENIED:", err);
+
+        document.getElementById("status").innerHTML =
+          "❌ Access denied. Redirecting…";
+
+        setTimeout(() => {
+          window.location.replace("/static/login.html");
+        }, 1000);
+      }
+    }
+
+    loadOffice();
+  </script>
+</body>
+</html>

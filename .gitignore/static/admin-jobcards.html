@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NORDX | Admin – Job Cards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --light: #f8fafc;
+      --border: #e5e7eb;
+      --muted: #64748b;
+    }
+
+    body {
+      background: var(--light);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .table thead {
+      background: var(--primary);
+      color: white;
+    }
+
+    .image-grid img {
+      max-width: 120px;
+      margin: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .signature-img {
+      max-width: 280px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px;
+    }
+
+    select {
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    @media print {
+      header, button, .modal-footer {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>Job Cards</h1>
+    <span>NORDX · Administration</span>
+  </div>
+</header>
+
+<div class="container mt-5">
+
+  <!-- FILTERS -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <input id="filterJob" class="form-control" placeholder="Job Number">
+        </div>
+        <div class="col-md-3">
+          <input id="filterClient" class="form-control" placeholder="Client">
+        </div>
+        <div class="col-md-3">
+          <input id="filterTech" class="form-control" placeholder="Technician">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary w-100" onclick="applyFilters()">Apply Filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Job No</th>
+            <th>Client</th>
+            <th>Technician</th>
+            <th>Date</th>
+            <th>Hours</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="jobcardTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="jobcardModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Job Card</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body" id="modalContent"></div>
+
+      <div class="modal-footer">
+        <a id="pdfLink" class="btn btn-primary" target="_blank">View PDF</a>
+        <button class="btn btn-outline-primary" onclick="window.print()">Print</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const API_BASE = "https://api01.nordx.co.za";
+const UPLOAD_BASE = API_BASE;
+
+let allJobCards = [];
+
+/* ================= AUTH FETCH ================= */
+function authFetch(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: "include"
+  });
+}
+
+/* ================= LOAD JOB CARDS ================= */
+async function loadJobCards() {
+  const res = await authFetch("/admin/jobcards");
+
+  if (res.status === 401) {
+    window.location.replace("/static/login.html");
+    return;
+  }
+
+  const data = await res.json();
+  allJobCards = data;
+  renderTable(allJobCards);
+}
+
+/* ================= TABLE ================= */
+function renderTable(data) {
+  const table = document.getElementById("jobcardTable");
+  table.innerHTML = "";
+
+  data.forEach(jc => {
+    table.innerHTML += `
+      <tr>
+        <td>${jc.job_number}</td>
+        <td>${jc.client_name}</td>
+        <td>${jc.technician_name || ""}</td>
+        <td>${new Date(jc.created_at).toLocaleDateString()}</td>
+        <td>${jc.hours_worked}</td>
+        <td>
+          <select onchange="updateStatus(${jc.id}, this.value)">
+            <option ${jc.status === "submitted" ? "selected" : ""}>submitted</option>
+            <option ${jc.status === "processed" ? "selected" : ""}>processed</option>
+            <option ${jc.status === "completed" ? "selected" : ""}>completed</option>
+          </select>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openModal(${jc.id})">
+            View
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* ================= FILTERS ================= */
+function applyFilters() {
+  const j = filterJob.value.toLowerCase();
+  const c = filterClient.value.toLowerCase();
+  const t = filterTech.value.toLowerCase();
+
+  renderTable(
+    allJobCards.filter(jc =>
+      jc.job_number.toLowerCase().includes(j) &&
+      jc.client_name.toLowerCase().includes(c) &&
+      (jc.technician_name || "").toLowerCase().includes(t)
+    )
+  );
+}
+
+/* ================= MODAL ================= */
+async function openModal(id) {
+  const res = await authFetch(`/admin/jobcards/${id}`);
+  const jc = await res.json();
+
+  function resolveUploadUrl(path) {
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    if (!path.startsWith("/uploads")) path = "/uploads" + path;
+    return `${UPLOAD_BASE}${path}`;
+  }
+
+  const imgs = arr =>
+    arr?.length ? arr.map(p => `<img src="${resolveUploadUrl(p)}">`).join("") : "None";
+
+  document.getElementById("modalContent").innerHTML = `
+    <h4>JOB CARD</h4>
+    <p><strong>Job Number:</strong> ${jc.job_number}</p>
+    <p><strong>Client:</strong> ${jc.client_name}</p>
+    <p><strong>Site:</strong> ${jc.site_address}</p>
+    <p><strong>Contact:</strong> ${jc.contact_person}</p>
+    <p><strong>Phone:</strong> ${jc.contact_number || ""}</p>
+
+    <p><strong>Technician:</strong> ${jc.technician_name}</p>
+    <p><strong>Arrival:</strong> ${jc.arrival_time}</p>
+    <p><strong>Departure:</strong> ${jc.departure_time}</p>
+    <p><strong>Hours:</strong> ${jc.hours_worked}</p>
+
+    <hr>
+
+    <h5>Description</h5>
+    <p>${jc.job_description}</p>
+
+    <h5>Materials</h5>
+    <p>${jc.materials_used || "None"}</p>
+
+    <h5>Materials Photos</h5>
+    <div class="image-grid">${imgs(jc.material_photos)}</div>
+
+    <h5>Before Photos</h5>
+    <div class="image-grid">${imgs(jc.before_photos)}</div>
+
+    <h5>After Photos</h5>
+    <div class="image-grid">${imgs(jc.after_photos)}</div>
+
+    <h5>Signature</h5>
+    ${
+      jc.signature_path
+        ? `<img src="${resolveUploadUrl(jc.signature_path)}" class="signature-img">`
+        : "No signature"
+    }
+  `;
+
+  document.getElementById("pdfLink").href =
+    `${API_BASE}/admin/jobcards/${jc.id}/pdf`;
+
+  new bootstrap.Modal(document.getElementById("jobcardModal")).show();
+}
+
+/* ================= STATUS ================= */
+async function updateStatus(id, status) {
+  await authFetch(`/admin/jobcards/${id}/status?status=${status}`, {
+    method: "PATCH"
+  });
+}
+
+/* ================= INIT ================= */
+document.addEventListener("DOMContentLoaded", loadJobCards);
+</script>
+
+</body>
+</html>

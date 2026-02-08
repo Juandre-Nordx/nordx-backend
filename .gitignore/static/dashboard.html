@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NORDX | Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+  <h1>NORDX Dashboard</h1>
+  <p id="status">Loading…</p>
+
+  <script>
+    const API_BASE = "https://api01.nordx.co.za";
+
+    async function loadMe() {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          credentials: "include"
+        });
+
+        if (!res.ok) {
+          throw new Error("Not authenticated");
+        }
+
+        const data = await res.json();
+
+        console.log("AUTH /me response:", data);
+
+        document.getElementById("status").innerHTML = `
+          ✅ Logged in<br>
+          Role: <strong>${data.role}</strong><br>
+          Email: ${data.email || "unknown"}
+        `;
+
+      } catch (err) {
+        console.error("AUTH FAILED:", err);
+        document.getElementById("status").innerHTML =
+          "❌ Not authenticated. Redirecting to login…";
+
+        setTimeout(() => {
+          window.location.replace("/static/login.html");
+        }, 1000);
+      }
+    }
+
+    loadMe();
+  </script>
+</body>
+</html>

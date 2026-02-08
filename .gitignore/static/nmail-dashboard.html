@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NORDX – NMail</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+
+      --blue: #2563eb;
+      --orange: #f59e0b;
+      --green: #16a34a;
+      --gray: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* Top Bar */
+    header {
+      height: 56px;
+      background: #0f172a;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+    }
+
+    header .logo {
+      font-weight: bold;
+      font-size: 18px;
+      margin-right: 40px;
+    }
+
+    header nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+      margin-right: 20px;
+      font-size: 14px;
+    }
+
+    header nav a.active {
+      color: #fff;
+      border-bottom: 2px solid #38bdf8;
+      padding-bottom: 4px;
+    }
+
+    /* Page */
+    main {
+      padding: 24px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .filters select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: white;
+      font-size: 13px;
+    }
+
+    /* Table */
+    .table-wrapper {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead {
+      background: #f9fafb;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    tr:hover {
+      background: #f8fafc;
+      cursor: pointer;
+    }
+
+    /* Status dots */
+    .status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .new { background: var(--blue); }
+    .progress { background: var(--orange); }
+    .done { background: var(--green); }
+    .archived { background: var(--gray); }
+
+    /* Badges */
+    .type {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      background: #eef2ff;
+      color: #3730a3;
+      display: inline-block;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .link {
+      color: var(--blue);
+      font-weight: bold;
+    }
+
+    .none {
+      color: var(--gray);
+      font-style: italic;
+    }
+
+    /* Footer note */
+    .note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">NORDX</div>
+  <nav>
+    <a href="#">Dashboard</a>
+    <a href="#" class="active">NMail</a>
+   
+  </nav>
+</header>
+
+<main>
+  <h1>NMail – Operations Inbox</h1>
+
+  <!-- Filters -->
+  <div class="filters">
+    <select>
+      <option>Status: All</option>
+      <option>New</option>
+      <option>In Progress</option>
+      <option>Processed</option>
+      <option>Archived</option>
+    </select>
+
+    <select>
+      <option>Type: All</option>
+      <option>Incident</option>
+      <option>Job Request</option>
+      <option>Quote Request</option>
+      <option>Complaint</option>
+    </select>
+
+    <select>
+      <option>Source: All</option>
+      <option>QR</option>
+      <option>Web</option>
+      <option>API</option>
+    </select>
+  </div>
+
+  <!-- Inbox Table -->
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Type</th>
+          <th>Heading</th>
+          <th>Source</th>
+          <th>Submitted</th>
+          <th>📎</th>
+          <th>Linked</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td><span class="status new"></span></td>
+          <td><span class="type">Incident</span></td>
+          <td><strong>Incident – Main Gate</strong></td>
+          <td class="muted">QR – Gate A</td>
+          <td class="muted">4 min ago</td>
+          <td>📎</td>
+          <td class="none">Not processed</td>
+        </tr>
+
+        <tr>
+          <td><span class="status progress"></span></td>
+          <td><span class="type">Quote</span></td>
+          <td><strong>Quote Request – Block C</strong></td>
+          <td class="muted">QR – Site 12</td>
+          <td class="muted">1 hour ago</td>
+          <td></td>
+          <td class="link">Job #142</td>
+        </tr>
+
+        <tr>
+          <td><span class="status done"></span></td>
+          <td><span class="type">Complaint</span></td>
+          <td><strong>Fence Damage</strong></td>
+          <td class="muted">Web Form</td>
+          <td class="muted">Yesterday</td>
+          <td>📎</td>
+          <td class="link">Job #139</td>
+        </tr>
+
+        <tr>
+          <td><span class="status archived"></span></td>
+          <td><span class="type">General</span></td>
+          <td><strong>General Query</strong></td>
+          <td class="muted">API</td>
+          <td class="muted">2 days ago</td>
+          <td></td>
+          <td class="none">Archived</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    Click any row to open the NMail detail view and process the item.
+  </div>
+</main>
+
+</body>
+</html>
