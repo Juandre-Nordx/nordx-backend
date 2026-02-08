@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from backend.routes import auth, admin, jobcards, users
 import os
+from backend.database import Base, engine
 
 ENV = os.getenv("ENVIRONMENT", "production")
 app = FastAPI(
@@ -83,6 +84,11 @@ app.mount(
     StaticFiles(directory=UPLOAD_DIR),
     name="uploads"
 )
+# -------------------------------------------------
+# 6️⃣ INIT BETA DATABASE SCHEMA (ONE-TIME)
+# -------------------------------------------------
+if ENV == "beta":
+    Base.metadata.create_all(bind=engine)
 
 
 
