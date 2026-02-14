@@ -178,7 +178,7 @@ async def create_jobcard(
     # --------------------------------
     # EMAIL PDF TO COMPANY
     # --------------------------------
-company = db.query(Company).filter(Company.id == company_id).first()
+    company = db.query(Company).filter(Company.id == company_id).first()
 
     if company and company.contact_email:
         try:
