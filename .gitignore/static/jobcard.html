@@ -197,7 +197,7 @@
 /* ===============================
    CONFIG
 ================================ */
-const API_BASE = "https://api01.nordx.co.za";
+const API_BASE = "https://beta.nordx.co.za";
 
 /* ===============================
    SIGNATURE PAD
@@ -308,7 +308,7 @@ jobcardForm.addEventListener("submit", async (e) => {
 
     if (res.status === 401) {
       alert("Session expired. Please log in again.");
-      window.location.replace("/static/login.html");
+      window.location.replace("/Beta/login.html");
       return;
     }
 

@@ -165,7 +165,7 @@
     <h1>User Management</h1>
     <span>Super Admin Control Panel</span>
     <h2>Companies</h2>
-    <button onclick="window.location.href='/static/create-company.html'">
+    <button onclick="window.location.href='/Beta/create-company.html'">
       + Create Company
     </button>
     <button onclick="openUserAdmin()">Manage Users</button>
@@ -193,8 +193,7 @@
 </footer>
 
 <script>
-
-const API_BASE = "https://api01.nordx.co.za";
+const API_BASE = "https://beta.nordx.co.za";
 async function loadCompanies() {
   try {
     const res = await fetch(`${API_BASE}/admin/super/companies`, {
@@ -231,7 +230,7 @@ async function loadCompanies() {
   }
 }
 function openUserAdmin() {
-  window.location.href = "/static/admin-users.html";
+  window.location.href = "/Beta/admin-users.html";
 }
 //sync function logout() {
 //  try {
@@ -242,7 +241,7 @@ function openUserAdmin() {
 //  } catch (e) {
 //    console.warn("Logout failed", e);
 //  } finally {
-//    window.location.replace("/static/login.html");
+//    window.location.replace("/beta/login.html");
 //  }
 //}
 loadCompanies();

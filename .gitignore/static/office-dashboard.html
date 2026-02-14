@@ -11,7 +11,7 @@
   <p id="status">Loading…</p>
 
   <script>
-    const API_BASE = "https://api01.nordx.co.za";
+    const API_BASE = "https://beta.nordx.co.za";
 
     async function loadOffice() {
       try {
@@ -44,7 +44,7 @@
           "❌ Access denied. Redirecting…";
 
         setTimeout(() => {
-          window.location.replace("/static/login.html");
+          window.location.replace("/Beta/login.html");
         }, 1000);
       }
     }

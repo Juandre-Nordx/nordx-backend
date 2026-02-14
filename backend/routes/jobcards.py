@@ -169,11 +169,11 @@ async def create_jobcard(
         print("❌ PDF generation failed")
         traceback.print_exc()
 
-    return {
-        "status": "success",
-        "job_number": jobcard.job_number,
-        "hours_worked": hours_worked,
-    }
+    #return {
+    #    "status": "success",
+    #    "job_number": jobcard.job_number,
+    #    "hours_worked": hours_worked,
+    #}
     
     # --------------------------------
     # EMAIL PDF TO COMPANY
@@ -188,10 +188,18 @@ async def create_jobcard(
                 job_number=jobcard.job_number,
                 pdf_path=pdf_path,
             )
+            print("📧 Jobcard email sent")
         except Exception as e:
             print("❌ Failed to send jobcard email:", e)
     else:
         print("⚠️ No company email configured — skipping email")
+
+
+    return {
+        "status": "success",
+        "job_number": jobcard.job_number,
+        "hours_worked": hours_worked,
+    }
 
 
 # =========================

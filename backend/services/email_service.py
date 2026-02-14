@@ -1,125 +1,76 @@
 import os
-import requests
+import smtplib
+from email.message import EmailMessage
 
-# =========================
-# ENV CONFIG
-# =========================
+ENV = os.getenv("ENVIRONMENT", "production")
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-RESET_URL = os.getenv("RESET_URL")
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
 
-# Default sender (must be verified in Resend)
-EMAIL_FROM = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
-
-if not RESEND_API_KEY:
-    raise RuntimeError("RESEND_API_KEY not set")
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+RESET_URL = os.getenv("RESET_URL")  # base URL, no token yet
 
 
-RESEND_ENDPOINT = "https://api.resend.com/emails"
+def send_jobcard_email(to_email: str, company_name: str, job_number: str, pdf_path: str):
+    msg = EmailMessage()
+    msg["From"] = f"NORDX <{EMAIL_FROM}>"
+    msg["To"] = to_email
+    msg["Subject"] = f"Job Card {job_number}"
+
+    msg.set_content(f"""
+Hello {company_name},
+
+Please find attached Job Card {job_number}.
+
+Regards,
+NORDX
+""")
+
+    with open(pdf_path, "rb") as f:
+        msg.add_attachment(
+            f.read(),
+            maintype="application",
+            subtype="pdf",
+            filename=f"{job_number}.pdf"
+        )
+
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+        server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(msg)
 
 
-# =========================
-# PASSWORD RESET EMAIL
-# =========================
-def send_reset_email(email: str, token: str):
-    """
-    Sends a password reset email using Resend
-    """
+def send_reset_email(to_email: str, token: str):
+    if not SMTP_HOST or not SMTP_PASS or not EMAIL_FROM or not RESET_URL:
+        raise RuntimeError("Email environment variables not configured")
 
     reset_link = f"{RESET_URL}?token={token}"
 
-    payload = {
-        "from": EMAIL_FROM,
-        "to": email,
-        "subject": "Reset your password – NORDX",
-        "html": f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px;">
-            <h2>Password Reset</h2>
-            <p>You requested a password reset for your NORDX account.</p>
-            <p>
-              <a href="{reset_link}"
-                 style="display:inline-block;padding:12px 18px;
-                        background:#0f172a;color:#fff;
-                        text-decoration:none;border-radius:6px;">
-                Reset Password
-              </a>
-            </p>
-            <p>This link expires in 1 hour.</p>
-            <p>If you didn’t request this, ignore this email.</p>
-        </div>
-        """
-    }
+    subject_prefix = "[BETA] " if ENV == "beta" else ""
+    subject = f"{subject_prefix}Reset your NORDX password"
 
-    response = requests.post(
-        RESEND_ENDPOINT,
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=10,
-    )
+    msg = EmailMessage()
+    msg["From"] = f"NORDX <{EMAIL_FROM}>"
+    msg["To"] = to_email
+    msg["Subject"] = subject
 
-    if response.status_code >= 400:
-        print("❌ Resend error (reset email):", response.status_code, response.text)
-        return
+    msg.set_content(f"""
+Hello,
 
-    print("✅ Password reset email sent to", email)
+You requested a password reset for your NORDX account.
 
+Click the link below to reset your password:
+{reset_link}
 
-# =========================
-# JOB CARD PDF EMAIL
-# =========================
-def send_jobcard_email(
-    to_email: str,
-    pdf_path: str,
-    job_number: str,
-    company_name: str,
-):
-    """
-    Sends a job card PDF to the company admin email
-    """
+This link will expire in 1 hour.
 
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+If you did not request this, you can safely ignore this email.
 
-    # Read PDF as bytes
-    with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
+Regards,
+NORDX Team
+""")
 
-    payload = {
-        "from": EMAIL_FROM,
-        "to": to_email,
-        "subject": f"Job Card {job_number}",
-        "html": f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px;">
-            <h2>Job Card Completed</h2>
-            <p>Please find attached the job card:</p>
-            <p><strong>{job_number}</strong></p>
-            <br>
-            <p>Regards,<br>{company_name}</p>
-        </div>
-        """,
-        "attachments": [
-            {
-                "filename": f"{job_number}.pdf",
-                "content": pdf_bytes,
-            }
-        ],
-    }
-
-    response = requests.post(
-        RESEND_ENDPOINT,
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=15,
-    )
-
-    if response.status_code >= 400:
-        print("❌ Resend error (jobcard email):", response.status_code, response.text)
-        return
-
-    print(f"📧 Job card email sent to {to_email} ({job_number})")
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+        server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(msg)

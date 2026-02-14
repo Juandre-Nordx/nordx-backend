@@ -154,7 +154,7 @@
           This becomes the official service record.
         </p>
       </div>
-      <a href="/static/jobcard.html">Create Job Card</a>
+      <a href="/Beta/jobcard.html">Create Job Card</a>
     </div>
 
     <!-- Submitted Jobs (V2) -->
@@ -178,7 +178,7 @@
 </main>
 
 <script>
-const API_BASE = "https://api01.nordx.co.za";
+const API_BASE = "https://beta.nordx.co.za";
 
   async function logout() {
     try {
@@ -189,7 +189,7 @@ const API_BASE = "https://api01.nordx.co.za";
     } catch (e) {
       console.warn("Logout failed", e);
     } finally {
-      window.location.replace("/static/login.html");
+      window.location.replace("/Beta/login.html");
     }
   }
 </script>
