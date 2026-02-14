@@ -178,12 +178,12 @@ async def create_jobcard(
     # --------------------------------
     # EMAIL PDF TO COMPANY
     # --------------------------------
-    company = db.query(Company).filter(Company.id == company_id).first()
+company = db.query(Company).filter(Company.id == company_id).first()
 
-    if company and company.email:
+    if company and company.contact_email:
         try:
             send_jobcard_email(
-                to_email=company.email,
+                to_email=company.contact_email,
                 company_name=company.name,
                 job_number=jobcard.job_number,
                 pdf_path=pdf_path,
@@ -192,7 +192,7 @@ async def create_jobcard(
         except Exception as e:
             print("❌ Failed to send jobcard email:", e)
     else:
-        print("⚠️ No company email configured — skipping email")
+        print("⚠️ No company contact_email configured — skipping email")
 
 
     return {
