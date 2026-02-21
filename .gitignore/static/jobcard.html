@@ -69,6 +69,69 @@
     .btn-primary:hover {
       background: #020617;
     }
+    
+    #uploadOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    }
+
+    .overlay-content {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        text-align: center;
+        width: 300px;
+    }
+
+    .spinner {
+        border: 6px solid #eee;
+        border-top: 6px solid #16a34a;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    #successBanner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+
+    .success-box {
+      background: #16a34a;
+      color: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      box-shadow: 0 20px 50px rgba(0,0,0,.2);
+    }
+
+    
+    
+    
   </style>
 </head>
 
@@ -76,8 +139,23 @@
 
 <div class="container my-5">
   <div class="card p-4 p-md-5">
+    <div id="uploadOverlay" >
+        <div class="overlay-content">
+            <div class="spinner"></div>
+            <p>Uploading job card... Please wait.</p>
+            <small>This may take up to 2 minutes.</small>
+        </div>
+    </div>
+    
+  <div id="successBanner">
+    <div class="success-box">
+      ✅ Job Card Submitted Successfully!
+    </div>
+  </div>
+
 
     <h3 class="mb-2">Job Card</h3>
+    
     <p class="text-muted mb-4">
       Complete all fields clearly. This document becomes an official NORDX service record.
     </p>
@@ -181,7 +259,7 @@
         onclick="signaturePad.clear()">
         Clear Signature
       </button>
-
+      
       <!-- SUBMIT -->
       <button
         type="submit"
@@ -191,6 +269,7 @@
       </button>
 
     </form>
+
   </div>
 </div>
 <script>
@@ -205,7 +284,6 @@ const API_BASE = "https://beta.nordx.co.za";
 const canvas = document.getElementById("signature-pad");
 const signaturePad = new SignaturePad(canvas);
 
-/* CANVAS RESIZE */
 function resizeCanvas() {
   const ratio = Math.max(window.devicePixelRatio || 1, 1);
   canvas.width = canvas.offsetWidth * ratio;
@@ -216,23 +294,29 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* ===============================
-   HOURS CALCULATION
+   HOURS CALCULATION (FIXED)
 ================================ */
 function calculateHours() {
-  const a = arrival_time.value;
-  const d = departure_time.value;
-  if (!a || !d) return;
+  const arrival = document.getElementById("arrival_time").value;
+  const departure = document.getElementById("departure_time").value;
+  const hoursField = document.getElementById("hours_worked");
 
-  const [ah, am] = a.split(":").map(Number);
-  const [dh, dm] = d.split(":").map(Number);
+  if (!arrival || !departure) {
+    hoursField.value = "";
+    return;
+  }
 
-  let diff = (dh * 60 + dm - (ah * 60 + am)) / 60;
+  const [ah, am] = arrival.split(":").map(Number);
+  const [dh, dm] = departure.split(":").map(Number);
+
+  let diff = ((dh * 60 + dm) - (ah * 60 + am)) / 60;
   if (diff < 0) diff += 24;
 
-  hours_worked.value = diff.toFixed(2);
+  hoursField.value = diff.toFixed(2);
 }
-arrival_time.onchange = calculateHours;
-departure_time.onchange = calculateHours;
+
+document.getElementById("arrival_time").addEventListener("change", calculateHours);
+document.getElementById("departure_time").addEventListener("change", calculateHours);
 
 /* ===============================
    IMAGE PREVIEW
@@ -268,16 +352,18 @@ let isSubmitting = false;
 
 jobcardForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-
-  // HARD STOP duplicate submits
   if (isSubmitting) return;
   isSubmitting = true;
 
+  const overlay = document.getElementById("uploadOverlay");
   const submitBtn = document.getElementById("submitBtn");
+
+  overlay.style.display = "flex";
   submitBtn.disabled = true;
   submitBtn.innerText = "Submitting…";
 
   if (signaturePad.isEmpty()) {
+    overlay.style.display = "none";
     alert("Client signature is required");
     submitBtn.disabled = false;
     submitBtn.innerText = "Submit Job Card";
@@ -296,9 +382,14 @@ jobcardForm.addEventListener("submit", async (e) => {
 
   fd.append("signature", signaturePad.toDataURL());
 
-  for (const f of before_photos.files)    fd.append("before_photos", f);
-  for (const f of after_photos.files)     fd.append("after_photos", f);
-  for (const f of materials_photos.files) fd.append("material_photos", f);
+  for (const f of before_photos.files)
+    fd.append("before_photos", f);
+
+  for (const f of after_photos.files)
+    fd.append("after_photos", f);
+
+  for (const f of materials_photos.files)
+    fd.append("material_photos", f);
 
   try {
     const res = await authFetch("/jobcards/", {
@@ -307,6 +398,7 @@ jobcardForm.addEventListener("submit", async (e) => {
     });
 
     if (res.status === 401) {
+      overlay.style.display = "none";
       alert("Session expired. Please log in again.");
       window.location.replace("/Beta/login.html");
       return;
@@ -316,21 +408,42 @@ jobcardForm.addEventListener("submit", async (e) => {
       throw new Error(await res.text());
     }
 
-    // ✅ SUCCESS → HARD RESET PAGE
-    alert("Job card submitted successfully");
-    window.location.reload();
+    /* ===============================
+       SUCCESS FLOW
+    ================================= */
+    overlay.style.display = "none";
+
+    const banner = document.getElementById("successBanner");
+    banner.style.display = "block";
+
+    // Show success message longer (12 seconds)
+    setTimeout(() => {
+      banner.style.display = "none";
+    }, 12000);
+
+    // Reset form
+    jobcardForm.reset();
+    signaturePad.clear();
+    document.getElementById("beforePreview").innerHTML = "";
+    document.getElementById("afterPreview").innerHTML = "";
+    document.getElementById("materialPreview").innerHTML = "";
+
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Submit Job Card";
+    isSubmitting = false;
 
   } catch (err) {
+    overlay.style.display = "none";
     console.error("Submit failed:", err);
-    alert("Failed to submit job card. Please try again.");
+    alert("Upload failed. Please try again.");
 
-    // Re-enable button on failure
     submitBtn.disabled = false;
     submitBtn.innerText = "Submit Job Card";
     isSubmitting = false;
   }
 });
 </script>
+
 
 
 

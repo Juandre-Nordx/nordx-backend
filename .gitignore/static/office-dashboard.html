@@ -1,55 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>NORDX | Office Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8" />
+<title>Office Dashboard | NORDX</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<style>
+/* SAME CSS — do not change structure */
+:root {
+  --primary: #0f172a;
+  --light: #f8fafc;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --muted: #64748b;
+  --danger: #dc2626;
+}
+
+* { box-sizing: border-box; font-family: system-ui; }
+
+body { margin: 0; background: var(--light); }
+
+header {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  padding: 18px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header h1 { margin: 0; font-size: 20px; }
+
+header button {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+main {
+  padding: 36px;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 28px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 26px;
+}
+
+.card h2 { margin: 0 0 10px 0; }
+
+.card a {
+  text-decoration: none;
+  background: var(--primary);
+  color: white;
+  padding: 11px 16px;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+</style>
 </head>
 
 <body>
+
+<header>
   <h1>Office Dashboard</h1>
-  <p id="status">Loading…</p>
+  <button onclick="logout()">Logout</button>
+</header>
 
-  <script>
-    const API_BASE = "https://beta.nordx.co.za";
+<main>
+  <div class="grid">
 
-    async function loadOffice() {
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include"
-        });
+    <div class="card">
+      <h2>📘 Job Cards</h2>
+      <a href="/Beta/admin-jobcards.html">Open Job Cards</a>
+    </div>
 
-        if (!res.ok) {
-          throw new Error("Not authenticated");
-        }
+  </div>
+</main>
 
-        const data = await res.json();
+<script>
+const API_BASE = "https://beta.nordx.co.za";
 
-        console.log("OFFICE /me:", data);
+async function logout() {
+  try {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: "POST",
+      credentials: "include"
+    });
+  } catch (e) {}
+  window.location.replace("/Beta/login.html");
+}
+</script>
 
-        if (data.role !== "office" && data.role !== "admin" && data.role !== "super_admin") {
-          throw new Error("Role not allowed here");
-        }
-
-        document.getElementById("status").innerHTML = `
-          ✅ Office Access Granted<br>
-          Role: <strong>${data.role}</strong><br>
-          Company ID: ${data.company_id}
-        `;
-
-      } catch (err) {
-        console.error("OFFICE ACCESS DENIED:", err);
-
-        document.getElementById("status").innerHTML =
-          "❌ Access denied. Redirecting…";
-
-        setTimeout(() => {
-          window.location.replace("/Beta/login.html");
-        }, 1000);
-      }
-    }
-
-    loadOffice();
-  </script>
 </body>
 </html>

@@ -191,24 +191,39 @@
 </footer>
 
 <script>
-async function loadCompany() {
-  const res = await fetch("/admin/company");
-  if (!res.ok) return;
+const API_BASE = "https://beta.nordx.co.za";
 
-  const c = await res.json();
-  document.getElementById("name").value = c.name || "";
-  document.getElementById("address").value = c.address || "";
-  document.getElementById("contact_email").value = c.contact_email || "";
-  document.getElementById("contact_phone").value = c.contact_phone || "";
+async function loadCompany() {
+  try {
+    const res = await fetch(`${API_BASE}/admin/company`, {
+      credentials: "include"
+    });
+
+    if (!res.ok) {
+      console.error("Failed:", res.status);
+      return;
+    }
+
+    const c = await res.json();
+
+    document.getElementById("name").value = c.name || "";
+    document.getElementById("address").value = c.address || "";
+    document.getElementById("contact_email").value = c.contact_email || "";
+    document.getElementById("contact_phone").value = c.contact_phone || "";
+
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 document.getElementById("companyForm").addEventListener("submit", async e => {
   e.preventDefault();
   const formData = new FormData(e.target);
 
-  const res = await fetch("/admin/company", {
+  const res = await fetch(`${API_BASE}/admin/company`, {
     method: "POST",
-    body: formData
+    body: formData,
+    credentials: "include"
   });
 
   if (res.ok) {
@@ -220,6 +235,7 @@ document.getElementById("companyForm").addEventListener("submit", async e => {
 
 loadCompany();
 </script>
+
 
 </body>
 </html>
