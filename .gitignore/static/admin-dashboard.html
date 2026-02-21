@@ -151,10 +151,11 @@
             operational records.
           </p>
         </div>
-        <a href="/Beta/admin-jobcards.html">Open Job Cards</a>
+        <a href="/static/admin-jobcards.html">Open Job Cards</a>
       </div>
 
-      <!-- Company Settings -->
+       <!--
+       Company Settings 
       <div class="card">
         <div>
           <h2>🏢 Company Settings</h2>
@@ -163,19 +164,19 @@
             used across NORDX systems.
           </p>
         </div>
-        <a href="/Beta/company.html">Company Settings</a>
+        <a href="/static/company.html">Company Settings</a>
       </div>
+      -->
 
     </div>
 
     <footer>
       © 2026 NORDX · Operational Software & Technology Systems
-        <small style="opacity:0.6;">Production Version 1.0</small>
     </footer>
   </main>
 
   <script>
-const API_BASE = "https://beta.nordx.co.za";
+  const API_BASE = "https://api01.nordx.co.za";
 
   async function logout() {
     try {
@@ -187,7 +188,7 @@ const API_BASE = "https://beta.nordx.co.za";
       console.warn("Logout failed:", e);
     } finally {
       // Always redirect
-      window.location.replace("/Beta/login.html");
+      window.location.replace("/static/login.html");
     }
   }
   </script>

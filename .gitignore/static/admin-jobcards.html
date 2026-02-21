@@ -151,7 +151,7 @@
 
 <script>
 /* ================= CONFIG ================= */
-const API_BASE = "https://beta.nordx.co.za";
+const API_BASE = "https://api01.nordx.co.za";
 const UPLOAD_BASE = API_BASE;
 
 let allJobCards = [];
@@ -169,7 +169,7 @@ async function loadJobCards() {
   const res = await authFetch("/admin/jobcards");
 
   if (res.status === 401) {
-    window.location.replace("/Beta/login.html");
+    window.location.replace("/static/login.html");
     return;
   }
 

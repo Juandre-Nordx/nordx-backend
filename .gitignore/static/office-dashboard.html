@@ -92,7 +92,7 @@ main {
 </main>
 
 <script>
-const API_BASE = "https://beta.nordx.co.za";
+const API_BASE = "https://api01.nordx.co.za";
 
 async function logout() {
   try {
@@ -101,7 +101,7 @@ async function logout() {
       credentials: "include"
     });
   } catch (e) {}
-  window.location.replace("/Beta/login.html");
+  window.location.replace("/static/login.html");
 }
 </script>
 

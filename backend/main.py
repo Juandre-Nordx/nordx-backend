@@ -10,7 +10,7 @@ from backend.database import Base, engine
 
 ENV = os.getenv("ENVIRONMENT", "production")
 app = FastAPI(
-    title="JobCard Pro API (BETA)" if ENV == "beta" else "JobCard Pro API",
+    title="JobCard Pro API " if ENV == "production" else "JobCard Pro API",
     version="0.1.0"
 )
 
@@ -21,7 +21,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # -------------------------------------------------
 # 1️⃣ SESSIONS FIRST (required for request.session)
 # -------------------------------------------------
-SESSION_DOMAIN = ".nordx.co.za" if ENV in ("beta", "production") else None
+SESSION_DOMAIN = ".nordx.co.za" if ENV in ("static", "production") else None
 
 app.add_middleware(
     SessionMiddleware,
@@ -45,7 +45,7 @@ ALLOWED_ORIGINS = [
 
 if ENV == "beta":
     ALLOWED_ORIGINS.extend([
-        "https://beta.nordx.co.za",
+        "https://api01.nordx.co.za",
     ])
 
 app.add_middleware(
@@ -84,11 +84,11 @@ app.mount(
     StaticFiles(directory=UPLOAD_DIR),
     name="uploads"
 )
-# -------------------------------------------------
-# 6️⃣ INIT BETA DATABASE SCHEMA (ONE-TIME)
-# -------------------------------------------------
-if ENV == "beta":
-    Base.metadata.create_all(bind=engine)
+## -------------------------------------------------
+## 6️⃣ INIT BETA DATABASE SCHEMA (ONE-TIME)
+## -------------------------------------------------
+#if ENV == "beta":
+#    Base.metadata.create_all(bind=engine)
 
 
 
