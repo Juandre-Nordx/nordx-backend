@@ -92,23 +92,16 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
 
     data = base64.b64decode(b64)
 
-    try:
-        data = compress_image(data)
-        ext = ".jpg"
-    except Exception:
-        ext = ".png"
-
     folder = os.path.join(UPLOAD_DIR, subfolder)
     os.makedirs(folder, exist_ok=True)
 
-    filename = f"{uuid.uuid4().hex}{ext}"
+    filename = f"{uuid.uuid4().hex}.png"
     disk_path = os.path.join(folder, filename)
 
     with open(disk_path, "wb") as f:
         f.write(data)
 
     return f"/uploads/{subfolder}/{filename}"
-
 
 def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
