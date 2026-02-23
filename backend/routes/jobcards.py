@@ -108,6 +108,18 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
         f.write(data)
 
     return f"/uploads/{subfolder}/{filename}"
+
+
+def calculate_hours(arrival: str, departure: str) -> float:
+    ah, am = map(int, arrival.split(":"))
+    dh, dm = map(int, departure.split(":"))
+
+    diff = ((dh * 60 + dm) - (ah * 60 + am)) / 60
+    if diff < 0:
+        diff += 24
+
+    return round(diff, 2)
+
 # =========================
 # CREATE JOBCARD
 # =========================
