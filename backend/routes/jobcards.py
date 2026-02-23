@@ -25,18 +25,59 @@ if not os.path.exists(UPLOAD_DIR):
 # HELPERS
 # =========================
 
+from PIL import Image
+import io
+
+MAX_WIDTH = 1600
+JPEG_QUALITY = 70
+MAX_UPLOAD_MB = 10
+
+
+def compress_image(file_bytes: bytes) -> bytes:
+    image = Image.open(io.BytesIO(file_bytes))
+    image = image.copy()
+
+    if image.mode in ("RGBA", "P"):
+        image = image.convert("RGB")
+
+    if image.width > MAX_WIDTH:
+        ratio = MAX_WIDTH / float(image.width)
+        new_height = int(float(image.height) * ratio)
+        image = image.resize((MAX_WIDTH, new_height), Image.LANCZOS)
+
+    output = io.BytesIO()
+    image.save(
+        output,
+        format="JPEG",
+        quality=JPEG_QUALITY,
+        optimize=True
+    )
+
+    return output.getvalue()
+
+
 def save_upload_file(upload_file: UploadFile, subfolder: str) -> str:
+    contents = upload_file.file.read()
+    upload_file.file.close()
+
+    if len(contents) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    try:
+        contents = compress_image(contents)
+        ext = ".jpg"
+    except Exception:
+        ext = os.path.splitext(upload_file.filename)[1] or ".bin"
+
     folder = os.path.join(UPLOAD_DIR, subfolder)
     os.makedirs(folder, exist_ok=True)
 
-    ext = os.path.splitext(upload_file.filename)[1] or ".bin"
     filename = f"{uuid.uuid4().hex}{ext}"
     disk_path = os.path.join(folder, filename)
 
     with open(disk_path, "wb") as f:
-        f.write(upload_file.file.read())
+        f.write(contents)
 
-    upload_file.file.seek(0)
     return f"/uploads/{subfolder}/{filename}"
 
 
@@ -51,28 +92,22 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
 
     data = base64.b64decode(b64)
 
+    try:
+        data = compress_image(data)
+        ext = ".jpg"
+    except Exception:
+        ext = ".png"
+
     folder = os.path.join(UPLOAD_DIR, subfolder)
     os.makedirs(folder, exist_ok=True)
 
-    filename = f"{uuid.uuid4().hex}.png"
+    filename = f"{uuid.uuid4().hex}{ext}"
     disk_path = os.path.join(folder, filename)
 
     with open(disk_path, "wb") as f:
         f.write(data)
 
     return f"/uploads/{subfolder}/{filename}"
-
-
-def calculate_hours(arrival: str, departure: str) -> float:
-    ah, am = map(int, arrival.split(":"))
-    dh, dm = map(int, departure.split(":"))
-
-    diff = ((dh * 60 + dm) - (ah * 60 + am)) / 60
-    if diff < 0:
-        diff += 24
-
-    return round(diff, 2)
-
 # =========================
 # CREATE JOBCARD
 # =========================
