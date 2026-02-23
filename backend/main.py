@@ -45,8 +45,7 @@ ALLOWED_ORIGINS = [
 
 if ENV == "beta":
     ALLOWED_ORIGINS.extend([
-         "https://beta.nordx.co.za",
-]
+        "https://beta.nordx.co.za",
     ])
 
 app.add_middleware(
