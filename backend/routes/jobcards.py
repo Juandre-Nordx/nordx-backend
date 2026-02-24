@@ -97,6 +97,8 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
     with open(disk_path, "wb") as f:
         f.write(data)
 
+    return f"/uploads/{subfolder}/{filename}"
+
 
 def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
