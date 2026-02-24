@@ -12,10 +12,15 @@ from backend.models import Company
 import os
 import uuid
 import base64
+from io import BytesIO
+
+from PIL import Image, ImageOps
 
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
 UPLOAD_DIR = "/data/uploads"
+MAX_IMAGE_DIMENSION = 1920
+JPEG_QUALITY = 75
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 if not os.path.exists(UPLOAD_DIR):
@@ -25,59 +30,50 @@ if not os.path.exists(UPLOAD_DIR):
 # HELPERS
 # =========================
 
-from PIL import Image
-import io
+def compress_image(image_bytes: bytes, extension: str) -> tuple[bytes, str]:
+    """Compress image uploads to reduce storage size for jobcard photos."""
+    try:
+        with Image.open(BytesIO(image_bytes)) as image:
+            image = ImageOps.exif_transpose(image)
+            image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.Resampling.LANCZOS)
 
-MAX_WIDTH = 1600
-JPEG_QUALITY = 70
-MAX_UPLOAD_MB = 10
+            output = BytesIO()
+            has_alpha = image.mode in ("RGBA", "LA") or (
+                image.mode == "P" and "transparency" in image.info
+            )
 
+            if has_alpha:
+                image.save(output, format="PNG", optimize=True)
+                return output.getvalue(), ".png"
 
-def compress_image(file_bytes: bytes) -> bytes:
-    image = Image.open(io.BytesIO(file_bytes))
-    image = image.copy()
-
-    if image.mode in ("RGBA", "P"):
-        image = image.convert("RGB")
-
-    if image.width > MAX_WIDTH:
-        ratio = MAX_WIDTH / float(image.width)
-        new_height = int(float(image.height) * ratio)
-        image = image.resize((MAX_WIDTH, new_height), Image.LANCZOS)
-
-    output = io.BytesIO()
-    image.save(
-        output,
-        format="JPEG",
-        quality=JPEG_QUALITY,
-        optimize=True
-    )
-
-    return output.getvalue()
-
+            image = image.convert("RGB")
+            image.save(
+                output,
+                format="JPEG",
+                optimize=True,
+                quality=JPEG_QUALITY,
+                progressive=True,
+            )
+            return output.getvalue(), ".jpg"
+    except Exception:
+        # If file isn't a valid image, keep original bytes and extension.
+        return image_bytes, extension
 
 def save_upload_file(upload_file: UploadFile, subfolder: str) -> str:
-    contents = upload_file.file.read()
-    upload_file.file.close()
-
-    if len(contents) > MAX_UPLOAD_MB * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large")
-
-    try:
-        contents = compress_image(contents)
-        ext = ".jpg"
-    except Exception:
-        ext = os.path.splitext(upload_file.filename)[1] or ".bin"
-
     folder = os.path.join(UPLOAD_DIR, subfolder)
     os.makedirs(folder, exist_ok=True)
+
+    ext = os.path.splitext(upload_file.filename)[1] or ".bin"
+    raw_data = upload_file.file.read()
+    compressed_data, ext = compress_image(raw_data, ext)
 
     filename = f"{uuid.uuid4().hex}{ext}"
     disk_path = os.path.join(folder, filename)
 
     with open(disk_path, "wb") as f:
-        f.write(contents)
+        f.write(compressed_data)
 
+    upload_file.file.seek(0)
     return f"/uploads/{subfolder}/{filename}"
 
 
@@ -101,7 +97,6 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
     with open(disk_path, "wb") as f:
         f.write(data)
 
-    return f"/uploads/{subfolder}/{filename}"
 
 def calculate_hours(arrival: str, departure: str) -> float:
     ah, am = map(int, arrival.split(":"))
