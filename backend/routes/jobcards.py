@@ -13,7 +13,7 @@ import os
 import uuid
 import base64
 from io import BytesIO
-
+from fastapi import BackgroundTasks
 from PIL import Image, ImageOps
 
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
@@ -116,6 +116,7 @@ def calculate_hours(arrival: str, departure: str) -> float:
 
 @router.post("/")
 async def create_jobcard(
+    background_tasks: BackgroundTasks,
     request: Request,
     current_user: dict = Depends(get_current_user),
 
@@ -185,26 +186,39 @@ async def create_jobcard(
     db.add(jobcard)
     db.commit()
     db.refresh(jobcard)
+    
+    company = db.query(Company).filter(Company.id == company_id).first()
 
+    background_tasks.add_task(
+        process_jobcard_async,
+        jobcard.id,
+        company.contact_email if company else None,
+        company.name if company else "",
+    )
+    return {
+    "status": "success",
+    "job_number": jobcard.job_number,
+    "hours_worked": hours_worked,
+    }
     # -------- PDF GENERATION (ONLY PLACE IT BELONGS) --------
     pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
     os.makedirs(pdf_dir, exist_ok=True)
 
     pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
 
-    try:
-        print("📄 Generating PDF:", pdf_path)
-        pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
-
-        if not os.path.exists(pdf_path):
-            raise RuntimeError("PDF not created")
-
-        print("✅ PDF generated")
-
-    except Exception:
-        import traceback
-        print("❌ PDF generation failed")
-        traceback.print_exc()
+    #try:
+    #    print("📄 Generating PDF:", pdf_path)
+    #    pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+#
+    #    if not os.path.exists(pdf_path):
+    #        raise RuntimeError("PDF not created")
+#
+    #    print("✅ PDF generated")
+#
+    #except Exception:
+    #    import traceback
+    #    print("❌ PDF generation failed")
+    #    traceback.print_exc()
 
     #return {
     #    "status": "success",
@@ -212,32 +226,57 @@ async def create_jobcard(
     #    "hours_worked": hours_worked,
     #}
     
-    # --------------------------------
-    # EMAIL PDF TO COMPANY
-    # --------------------------------
-    company = db.query(Company).filter(Company.id == company_id).first()
+    ## --------------------------------
+    ## EMAIL PDF TO COMPANY
+    ## --------------------------------
+    #company = db.query(Company).filter(Company.id == company_id).first()
+#
+    #if company and company.contact_email:
+    #    try:
+    #        send_jobcard_email(
+    #            to_email=company.contact_email,
+    #            company_name=company.name,
+    #            job_number=jobcard.job_number,
+    #            pdf_path=pdf_path,
+    #        )
+    #        print("📧 Jobcard email sent")
+    #    except Exception as e:
+    #        print("❌ Failed to send jobcard email:", e)
+    #else:
+    #    print("⚠️ No company contact_email configured — skipping email")
+#
+#
+    #return {
+    #    "status": "success",
+    #    "job_number": jobcard.job_number,
+    #    "hours_worked": hours_worked,
+    #}
 
-    if company and company.contact_email:
-        try:
+def process_jobcard_async(jobcard_id: int, company_email: str | None, company_name: str):
+    from backend.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        jobcard = db.query(JobCard).filter(JobCard.id == jobcard_id).first()
+        if not jobcard:
+            return
+
+        pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
+        os.makedirs(pdf_dir, exist_ok=True)
+
+        pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
+
+        pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
+
+        if company_email:
             send_jobcard_email(
-                to_email=company.contact_email,
-                company_name=company.name,
+                to_email=company_email,
+                company_name=company_name,
                 job_number=jobcard.job_number,
                 pdf_path=pdf_path,
             )
-            print("📧 Jobcard email sent")
-        except Exception as e:
-            print("❌ Failed to send jobcard email:", e)
-    else:
-        print("⚠️ No company contact_email configured — skipping email")
-
-
-    return {
-        "status": "success",
-        "job_number": jobcard.job_number,
-        "hours_worked": hours_worked,
-    }
-
+    finally:
+        db.close()
 
 # =========================
 # DOWNLOAD PDF

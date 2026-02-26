@@ -55,7 +55,7 @@ class JobCard(Base):
 
     id = Column(Integer, primary_key=True)
     job_number = Column(String, unique=True, nullable=False)
-    
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -105,3 +105,21 @@ class Admin(Base):
     password_hash = Column(String, nullable=False)
 
     is_active = Column(Boolean, default=True)    
+    
+    
+    
+class Client(Base):
+    __tablename__ = "clients"
+
+    id = Column(Integer, primary_key=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+
+    client_code = Column(String, nullable=True)
+    name = Column(String, nullable=False)
+
+    site_address = Column(String)
+    contact_person = Column(String)
+    contact_number = Column(String)
+    email = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

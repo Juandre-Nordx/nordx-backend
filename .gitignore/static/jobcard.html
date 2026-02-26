@@ -428,15 +428,23 @@ jobcardForm.addEventListener("submit", async (e) => {
 
   fd.append("signature", signaturePad.toDataURL());
 
-  for (const f of before_photos.files)
-    fd.append("before_photos", f);
+/* ===============================
+   COMPRESS BEFORE UPLOAD
+================================ */
+for (const f of before_photos.files) {
+  const compressed = await compressImage(f);
+  fd.append("before_photos", compressed);
+}
 
-  for (const f of after_photos.files)
-    fd.append("after_photos", f);
+for (const f of after_photos.files) {
+  const compressed = await compressImage(f);
+  fd.append("after_photos", compressed);
+}
 
-  for (const f of materials_photos.files)
-    fd.append("material_photos", f);
-
+for (const f of materials_photos.files) {
+  const compressed = await compressImage(f);
+  fd.append("material_photos", compressed);
+}
   try {
     const res = await authFetch("/jobcards/", {
       method: "POST",
