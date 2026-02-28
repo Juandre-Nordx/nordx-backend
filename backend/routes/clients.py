@@ -22,12 +22,13 @@ def create_client(
     current_user: dict = Depends(get_current_user),
 ):
     client = Client(
-        company_id=current_user["company_id"],
-        name=name,
-        address=address,  # <-- FIXED
-        contact_person=contact_person,
-        contact_number=contact_number,
-        email=email,
+    company_id=current_user["company_id"],
+    client_code=client_code,  # <-- ADD THIS
+    name=name,
+    address=address,
+    contact_person=contact_person,
+    contact_number=contact_number,
+    email=email,
     )
 
     db.add(client)

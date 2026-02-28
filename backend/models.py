@@ -114,6 +114,9 @@ class Client(Base):
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
+    # NEW FIELD (nullable for migration safety)
+    client_code = Column(String, index=True)
+
     name = Column(String, nullable=False)
     address = Column(String)
     contact_person = Column(String)
