@@ -114,10 +114,8 @@ class Client(Base):
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
-    client_code = Column(String, nullable=True)
     name = Column(String, nullable=False)
-
-    site_address = Column(String)
+    address = Column(String)
     contact_person = Column(String)
     contact_number = Column(String)
     email = Column(String)

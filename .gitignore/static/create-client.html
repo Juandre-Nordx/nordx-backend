@@ -40,7 +40,7 @@
   <form id="clientForm">
     <input type="text" id="client_code" placeholder="Client Code (Optional)">
     <input type="text" id="name" placeholder="Client Name" required>
-    <input type="text" id="site_address" placeholder="Site Address">
+    <input type="text" id="address" placeholder="Site Address">
     <input type="text" id="contact_person" placeholder="Contact Person">
     <input type="text" id="contact_number" placeholder="Contact Number">
     <input type="email" id="email" placeholder="Email">
@@ -58,7 +58,7 @@ document.getElementById("clientForm").addEventListener("submit", async (e) => {
   const fd = new FormData();
     fd.append("client_code", document.getElementById("client_code").value);
     fd.append("name", document.getElementById("name").value);
-    fd.append("site_address", document.getElementById("site_address").value);
+    fd.append("address", document.getElementById("address").value);
     fd.append("contact_person", document.getElementById("contact_person").value);
     fd.append("contact_number", document.getElementById("contact_number").value);
     fd.append("email", document.getElementById("email").value);
