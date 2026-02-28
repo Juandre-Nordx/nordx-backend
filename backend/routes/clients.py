@@ -31,6 +31,12 @@ def create_client(
         email=email,
     )
 
+    db.add(client)
+    db.commit()
+    db.refresh(client)
+
+    return {"id": client.id}
+
 
 @router.get("/")
 def list_clients(
