@@ -1,3 +1,15 @@
+
+from fastapi import APIRouter, Depends, Form, HTTPException
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import Client
+from backend.routes.auth import get_current_user
+
+router = APIRouter(
+    prefix="/clients",
+    tags=["Clients"]
+)
+
 @router.post("/")
 def create_client(
     client_code: str = Form(None),
