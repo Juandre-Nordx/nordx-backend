@@ -14,7 +14,7 @@ router = APIRouter(
 def create_client(
     client_code: str = Form(None),
     name: str = Form(...),
-    site_address: str = Form(None),
+    address: str = Form(None),  # <-- FIXED
     contact_person: str = Form(None),
     contact_number: str = Form(None),
     email: str = Form(None),
@@ -22,12 +22,12 @@ def create_client(
     current_user: dict = Depends(get_current_user),
 ):
     client = Client(
-    company_id=current_user["company_id"],
-    name=name,
-    address=site_address,  # map frontend field to DB column
-    contact_person=contact_person,
-    contact_number=contact_number,
-    email=email,
+        company_id=current_user["company_id"],
+        name=name,
+        address=address,  # <-- FIXED
+        contact_person=contact_person,
+        contact_number=contact_number,
+        email=email,
     )
 
     db.add(client)
