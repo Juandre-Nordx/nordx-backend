@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
-
+from backend.routes import clients
 from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
@@ -64,6 +64,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(jobcards.router)
 app.include_router(users.router)
+app.include_router(clients.router)
 
 # -------------------------------------------------
 # 4️⃣ HEALTH CHECK (Railway likes this)
