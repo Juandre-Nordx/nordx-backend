@@ -56,12 +56,12 @@ document.getElementById("clientForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const fd = new FormData();
-  fd.append("client_code", client_code.value);
-  fd.append("name", name.value);
-  fd.append("site_address", site_address.value);
-  fd.append("contact_person", contact_person.value);
-  fd.append("contact_number", contact_number.value);
-  fd.append("email", email.value);
+    fd.append("client_code", document.getElementById("client_code").value);
+    fd.append("name", document.getElementById("name").value);
+    fd.append("site_address", document.getElementById("site_address").value);
+    fd.append("contact_person", document.getElementById("contact_person").value);
+    fd.append("contact_number", document.getElementById("contact_number").value);
+    fd.append("email", document.getElementById("email").value);
 
   const res = await fetch(`${API_BASE}/clients/`, {
     method: "POST",
@@ -76,7 +76,7 @@ document.getElementById("clientForm").addEventListener("submit", async (e) => {
 
   const data = await res.json();
 
-  window.location.href = `/static/client-detail.html?id=${data.id}`;
+  window.location.href = `/Beta/client-detail.html?id=${data.id}`;
 });
 </script>
 
