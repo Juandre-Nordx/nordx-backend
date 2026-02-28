@@ -156,30 +156,71 @@
 </footer>
 
 <script>
+<script>
+const API_BASE = "https://beta.nordx.co.za";
+
+const params = new URLSearchParams(window.location.search);
+const clientId = params.get("id");
+
+if (!clientId) {
+  alert("No client selected");
+}
+
+// Load client immediately on page load
+fetch(`${API_BASE}/clients/${clientId}`, {
+  credentials: "include"
+})
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("clientName").innerText = data.name;
+    document.getElementById("clientCode").innerText =
+      "Client Code: " + (data.client_code || "—");
+
+    showInfo(data);
+  });
+
 function createJobcard() {
-  alert("Redirect to create jobcard (client pre-filled) in V2");
+  window.location.href =
+    `/static/jobcard.html?client_id=${clientId}`;
 }
 
 function switchTab(tab) {
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach(t => t.classList.remove("active"));
-
   event.target.classList.add("active");
 
-  const content = document.getElementById("tabContent");
-
   if (tab === "info") {
-    content.innerHTML = `
-      <h3>Client Information</h3>
-      <p>Basic client details will appear here.</p>
-    `;
-  } else if (tab === "jobcards") {
-    content.innerHTML = `
-      <h3>Client Jobcards</h3>
-      <p>All jobcards linked to this client will be listed here.</p>
-    `;
+    fetch(`${API_BASE}/clients/${clientId}`, {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => showInfo(data));
+  }
+
+  if (tab === "jobcards") {
+    loadClientJobcards();
   }
 }
+
+function showInfo(data) {
+  const content = document.getElementById("tabContent");
+  content.innerHTML = `
+    <h3>Client Information</h3>
+    <p><strong>Address:</strong> ${data.site_address || "-"}</p>
+    <p><strong>Contact:</strong> ${data.contact_person || "-"}</p>
+    <p><strong>Phone:</strong> ${data.contact_number || "-"}</p>
+    <p><strong>Email:</strong> ${data.email || "-"}</p>
+  `;
+}
+
+function loadClientJobcards() {
+  const content = document.getElementById("tabContent");
+  content.innerHTML = `
+    <h3>Client Jobcards</h3>
+    <p>Coming next step…</p>
+  `;
+}
+</script>
 </script>
 
 </body>

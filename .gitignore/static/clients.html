@@ -218,9 +218,48 @@
 </footer>
 
 <script>
-function openAddClient() {
-  alert("Add Client form coming in V2");
+  
+const API_BASE = "https://beta.nordx.co.za";
+
+async function loadClients() {
+  const res = await fetch(`${API_BASE}/clients/`, {
+    credentials: "include"
+  });
+
+  const clients = await res.json();
+
+  const table = document.getElementById("clientsTable");
+  table.innerHTML = "";
+
+  clients.forEach(client => {
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${client.client_code || "-"}</td>
+      <td>${client.name}</td>
+      <td>${client.site_address || "-"}</td>
+      <td>
+        <button class="open-btn"
+          onclick="openClient(${client.id})">
+          Open
+        </button>
+      </td>
+    `;
+
+    table.appendChild(row);
+  });
 }
+function openAddClient() {
+  window.location.href = "/Beta/create-client.html";
+}
+function openClient(id) {
+  window.location.href =
+    `/static/client-detail.html?id=${id}`;
+}
+
+loadClients();
+  
+  
 
 /* SIMPLE FRONTEND FILTER */
 const filters = ["filterCode", "filterName", "filterAddress"];

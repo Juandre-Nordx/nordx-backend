@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Client</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body { font-family: system-ui; background:#f8fafc; padding:40px; }
+    .card {
+      max-width:600px;
+      margin:auto;
+      background:white;
+      padding:30px;
+      border-radius:12px;
+      border:1px solid #e5e7eb;
+    }
+    input {
+      width:100%;
+      padding:10px;
+      margin-bottom:16px;
+      border-radius:8px;
+      border:1px solid #e5e7eb;
+    }
+    button {
+      background:#0f172a;
+      color:white;
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      width:100%;
+      cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Create Client</h2>
+
+  <form id="clientForm">
+    <input type="text" id="client_code" placeholder="Client Code (Optional)">
+    <input type="text" id="name" placeholder="Client Name" required>
+    <input type="text" id="site_address" placeholder="Site Address">
+    <input type="text" id="contact_person" placeholder="Contact Person">
+    <input type="text" id="contact_number" placeholder="Contact Number">
+    <input type="email" id="email" placeholder="Email">
+
+    <button type="submit">Create Client</button>
+  </form>
+</div>
+
+<script>
+const API_BASE = "https://beta.nordx.co.za";
+
+document.getElementById("clientForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const fd = new FormData();
+  fd.append("client_code", client_code.value);
+  fd.append("name", name.value);
+  fd.append("site_address", site_address.value);
+  fd.append("contact_person", contact_person.value);
+  fd.append("contact_number", contact_number.value);
+  fd.append("email", email.value);
+
+  const res = await fetch(`${API_BASE}/clients/`, {
+    method: "POST",
+    body: fd,
+    credentials: "include"
+  });
+
+  if (!res.ok) {
+    alert("Failed to create client");
+    return;
+  }
+
+  const data = await res.json();
+
+  window.location.href = `/static/client-detail.html?id=${data.id}`;
+});
+</script>
+
+</body>
+</html>

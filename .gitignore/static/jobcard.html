@@ -277,7 +277,22 @@
    CONFIG
 ================================ */
 const API_BASE = "https://beta.nordx.co.za";
+const params = new URLSearchParams(window.location.search);
+const clientId = params.get("client_id");
 
+if (clientId) {
+  fetch(`${API_BASE}/clients/${clientId}`, {
+  credentials: "include"
+  })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("client_name").value = data.name;
+      document.getElementById("site_address").value = data.address || "";
+      document.getElementById("contact_person").value = data.contact_person || "";
+      document.getElementById("contact_number").value = data.contact_number || "";
+      document.getElementById("customer_email").value = data.email || "";
+    });
+}
   
   /* ===============================
    IMAGE COMPRESSION (FRONTEND)

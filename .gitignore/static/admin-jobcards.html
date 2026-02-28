@@ -169,7 +169,7 @@ async function loadJobCards() {
   const res = await authFetch("/admin/jobcards");
 
   if (res.status === 401) {
-    window.location.replace("/static/login.html");
+    window.location.replace("/Beta/login.html");
     return;
   }
 
