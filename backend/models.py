@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from backend.database import Base 
+from backend.database import Base
 from sqlalchemy import DateTime
 
 # backend/models.py
