@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Client
 from backend.routes.auth import get_current_user
-
+from sqlalchemy import text
 router = APIRouter(
     prefix="/clients",
     tags=["Clients"]
@@ -47,6 +47,10 @@ def list_clients(
     query = db.query(Client).filter(
         Client.company_id == current_user["company_id"]
     )
+
+
+    db_name = db.execute(text("SELECT current_database()")).scalar()
+    print("CONNECTED DATABASE:", db_name)
 
     if search:
         query = query.filter(Client.name.ilike(f"%{search}%"))
