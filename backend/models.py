@@ -166,7 +166,7 @@ class Client(Base):
     __table_args__ = (
         Index("ix_clients_company_clientcode", "company_id", "client_code"),
     )
- class Task(Base):
+class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
