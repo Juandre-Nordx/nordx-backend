@@ -43,9 +43,11 @@ class TaskCreate(BaseModel):
     client_id: int
     title: str
     description: Optional[str] = None
+    priority: Optional[str] = "medium"
+    status: Optional[str] = "scheduled"
     start_datetime: datetime
     end_datetime: datetime
-
+    assigned_to: Optional[int] = None
 
 class TaskOut(BaseModel):
     id: int
@@ -53,8 +55,10 @@ class TaskOut(BaseModel):
     title: str
     description: Optional[str]
     status: str
+    priority: str
     start_datetime: Optional[datetime]
     end_datetime: Optional[datetime]
+    assigned_to: Optional[int]
 
     class Config:
         from_attributes = True

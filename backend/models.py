@@ -166,31 +166,24 @@ class Client(Base):
     __table_args__ = (
         Index("ix_clients_company_clientcode", "company_id", "client_code"),
     )
-    
-    
-
-
-class Task(Base):
+ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
 
     title = Column(String, nullable=False)
-    description = Column(String)
-    status = Column(String, default="open")
+    description = Column(Text)
 
-    start_datetime = Column(DateTime(timezone=True), nullable=True)
-    end_datetime = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, default="scheduled")
+    priority = Column(String, default="medium")
 
+    start_datetime = Column(DateTime)
+    end_datetime = Column(DateTime)
+
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    client = relationship("Client", back_populates="tasks")
-    jobcards = relationship("JobCard", back_populates="task")
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    # Relationships
-    client = relationship("Client", back_populates="tasks")
-    jobcards = relationship("JobCard", back_populates="task")
+    updated_at = Column(DateTime, default=datetime.utcnow)
