@@ -51,7 +51,7 @@ def list_clients(
     if search:
         query = query.filter(Client.name.ilike(f"%{search}%"))
 
-    return query.order_by(Client.name).all()
+    return query.order_by(Client.company_name).all()
 
 @router.get("/{client_id}")
 def get_client(
