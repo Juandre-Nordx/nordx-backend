@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime
+
+
 class JobCardItemCreate(BaseModel):
     description: str
     quantity: int
@@ -30,6 +33,28 @@ class UserOut(BaseModel):
     email: EmailStr
     role: str
     company_id: Optional[int]
+
+    class Config:
+        from_attributes = True
+        
+
+
+class TaskCreate(BaseModel):
+    client_id: int
+    title: str
+    description: Optional[str] = None
+    start_datetime: datetime
+    end_datetime: datetime
+
+
+class TaskOut(BaseModel):
+    id: int
+    client_id: int
+    title: str
+    description: Optional[str]
+    status: str
+    start_datetime: Optional[datetime]
+    end_datetime: Optional[datetime]
 
     class Config:
         from_attributes = True

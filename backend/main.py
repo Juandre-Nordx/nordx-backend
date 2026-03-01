@@ -7,7 +7,7 @@ from backend.routes import clients
 from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
-
+from backend.routes import tasks
 ENV = os.getenv("ENVIRONMENT", "production")
 app = FastAPI(
     title="JobCard Pro API " if ENV == "production" else "JobCard Pro API",
@@ -65,6 +65,7 @@ app.include_router(admin.router)
 app.include_router(jobcards.router)
 app.include_router(users.router)
 app.include_router(clients.router)
+app.include_router(tasks.router)
 
 # -------------------------------------------------
 # 4️⃣ HEALTH CHECK (Railway likes this)

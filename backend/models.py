@@ -1,3 +1,9 @@
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric, Index
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from database import Base
+from sqlalchemy import DateTime
+
 # backend/models.py
 
 from sqlalchemy import (
@@ -82,7 +88,31 @@ class JobCard(Base):
     after_photos = Column(JSON, default=list)
     status = Column(String, default="submitted", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Add to existing JobCard model
 
+    client_id = Column(
+        Integer,
+        ForeignKey("clients.id"),
+        nullable=True,  # critical for backward compatibility
+        index=True
+    )
+
+    task_id = Column(
+        Integer,
+        ForeignKey("tasks.id"),
+        nullable=True,
+        index=True
+    )
+
+    # Relationships
+    client = relationship("Client", back_populates="jobcards")
+    task = relationship("Task", back_populates="jobcards")
+
+    __table_args__ = (
+        Index("ix_jobcards_company_client", "company_id", "client_id"),
+        Index("ix_jobcards_company_task", "company_id", "task_id"),
+    )
     
 class JobCardItem(Base):
     __tablename__ = "jobcard_items"
@@ -111,20 +141,56 @@ class Admin(Base):
 class Client(Base):
     __tablename__ = "clients"
 
-    id = Column(Integer, primary_key=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
 
-    client_code = Column(String, index=True)
-
-    name = Column(String, nullable=False)
-
-    # NEW STANDARDIZED FIELD
-    site_address = Column(String)
-
-   
+    client_code = Column(String, nullable=False)
+    company_name = Column(String, nullable=False)
 
     contact_person = Column(String)
-    contact_number = Column(String)
+    phone = Column(String)
     email = Column(String)
+    physical_address = Column(String)
+
+    vat_number = Column(String)
+    payment_terms = Column(String)
+    credit_limit = Column(Numeric(12, 2))
+    account_status = Column(String, default="active")
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tasks = relationship("Task", back_populates="client", cascade="all, delete-orphan")
+    jobcards = relationship("JobCard", back_populates="client")
+
+    __table_args__ = (
+        Index("ix_clients_company_clientcode", "company_id", "client_code"),
+    )
+    
+    
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
+
+    title = Column(String, nullable=False)
+    description = Column(String)
+    status = Column(String, default="open")
+
+    start_datetime = Column(DateTime(timezone=True), nullable=True)
+    end_datetime = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    client = relationship("Client", back_populates="tasks")
+    jobcards = relationship("JobCard", back_populates="task")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Relationships
+    client = relationship("Client", back_populates="tasks")
+    jobcards = relationship("JobCard", back_populates="task")
