@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from backend.database import get_db
-from backend.models import Task, Client
+from backend.models import Task, User, Client
 from backend.schemas import TaskCreate, TaskOut
 from backend.routes.auth import get_current_user
 
