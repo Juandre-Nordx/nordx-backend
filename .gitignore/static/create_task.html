@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NORDX | Create Task</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root {
+  --bg: #0b0f17;
+  --card: #111827;
+  --border: #1f2937;
+  --text: #e5e7eb;
+  --muted: #6b7280;
+  --accent: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  max-width: 900px;
+  margin: 60px auto;
+  padding: 0 20px;
+}
+
+.card {
+  background: var(--card);
+  padding: 40px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+h1 {
+  margin: 0 0 30px;
+  font-weight: 600;
+  font-size: 24px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+input, select, textarea {
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  gap: 20px;
+}
+
+.row .form-group {
+  flex: 1;
+}
+
+button {
+  background: white;
+  color: black;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+.footer-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="card">
+    <h1>Create Task</h1>
+
+    <form id="taskForm">
+
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="title" required>
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="description" rows="4"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="priority">
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Status</label>
+          <select id="status">
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Start Date & Time</label>
+          <input type="datetime-local" id="start_datetime" required>
+        </div>
+
+        <div class="form-group">
+          <label>End Date & Time</label>
+          <input type="datetime-local" id="end_datetime" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Assign Technician</label>
+        <select id="assigned_to">
+          <option value="">Not Assigned</option>
+        </select>
+      </div>
+
+      <button type="submit">Create Task</button>
+
+    </form>
+
+    <div class="footer-note">
+      Client ID: <span id="clientIdDisplay"></span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API_BASE = "https://beta.nordx.co.za";
+const params = new URLSearchParams(window.location.search);
+const clientId = params.get("client_id");
+
+document.getElementById("clientIdDisplay").innerText = clientId;
+
+// Basic validation
+document.getElementById("taskForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const start = new Date(document.getElementById("start_datetime").value);
+  const end = new Date(document.getElementById("end_datetime").value);
+
+  if (end <= start) {
+    alert("End date must be after start date.");
+    return;
+  }
+
+  const payload = {
+    client_id: parseInt(clientId),
+    title: document.getElementById("title").value,
+    description: document.getElementById("description").value,
+    start_datetime: start.toISOString(),
+    end_datetime: end.toISOString()
+  };
+
+  fetch(`${API_BASE}/tasks/`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Failed to create task");
+    return res.json();
+  })
+  .then(data => {
+    window.location.href = `/Beta/client-detail.html?id=${clientId}`;
+  })
+  .catch(err => {
+    alert("Error creating task.");
+  });
+});
+function loadTechnicians() {
+
+  fetch("https://beta.nordx.co.za/tasks/technicians", {
+    credentials: "include"
+  })
+  .then(res => res.json())
+  .then(data => {
+
+    const dropdown = document.getElementById("assignedTo");
+
+    data.forEach(tech => {
+      const option = document.createElement("option");
+
+      option.value = tech.id;
+      option.textContent = tech.name;
+
+      dropdown.appendChild(option);
+    });
+
+  });
+
+}
+
+loadTechnicians();
+</script>
+
+</body>
+</html>

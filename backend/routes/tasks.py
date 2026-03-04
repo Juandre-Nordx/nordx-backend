@@ -56,3 +56,26 @@ def get_tasks_for_client(
     )
 
     return tasks
+@router.get("/technicians")
+def get_company_technicians(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    technicians = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.role == "technician",
+            User.is_active == True
+        )
+        .all()
+    )
+
+    return [
+        {
+            "id": tech.id,
+            "name": tech.name,
+            "email": tech.email
+        }
+        for tech in technicians
+    ]

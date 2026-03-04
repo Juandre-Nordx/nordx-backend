@@ -236,8 +236,8 @@ async function loadClients() {
 
     row.innerHTML = `
       <td>${client.client_code || "-"}</td>
-      <td>${client.name}</td>
-      <td>${client.site_address || "-"}</td>
+      <td>${client.company_name || "-"}</td>
+      <td>${client.physical_address || "-"}</td>
       <td>
         <button class="open-btn"
           onclick="openClient(${client.id})">

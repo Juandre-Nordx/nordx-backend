@@ -127,6 +127,10 @@
     </div>
 
     <div class="action-buttons">
+      <button onclick="createTask()">
+        + Create Task
+      </button>
+
       <button onclick="createJobcard()">
         + Create Jobcard
       </button>
@@ -137,10 +141,11 @@
 <main>
 
   <!-- Tabs -->
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('info')">Info</div>
-    <div class="tab" onclick="switchTab('jobcards')">Jobcards</div>
-  </div>
+ <div class="tabs">
+  <div class="tab active" onclick="switchTab('info', event)">Info</div>
+  <div class="tab" onclick="switchTab('tasks', event)">Tasks</div>
+  <div class="tab" onclick="switchTab('jobcards', event)">Jobcards</div>
+</div>
 
   <!-- Content -->
   <div class="tab-content" id="tabContent">
@@ -172,7 +177,7 @@ fetch(`${API_BASE}/clients/${clientId}`, {
 })
   .then(res => res.json())
   .then(data => {
-    document.getElementById("clientName").innerText = data.name;
+    document.getElementById("clientName").innerText = data.company_name;
     document.getElementById("clientCode").innerText =
       "Client Code: " + (data.client_code || "—");
 
@@ -181,10 +186,14 @@ fetch(`${API_BASE}/clients/${clientId}`, {
 
 function createJobcard() {
   window.location.href =
-    `/static/jobcard.html?client_id=${clientId}`;
+    `/Beta/jobcard.html?client_id=${clientId}`;
+}
+  function createTask() {
+  window.location.href =
+    `/Beta/create_task.html?client_id=${clientId}`;
 }
 
-function switchTab(tab) {
+function switchTab(tab, event) {
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach(t => t.classList.remove("active"));
   event.target.classList.add("active");
@@ -197,6 +206,52 @@ function switchTab(tab) {
       .then(data => showInfo(data));
   }
 
+  if (tab === "tasks") {
+    loadClientTasks();
+  }
+
+  
+function loadClientTasks() {
+  const content = document.getElementById("tabContent");
+
+  fetch(`${API_BASE}/tasks/client/${clientId}`, {
+    credentials: "include"
+  })
+    .then(res => res.json())
+    .then(tasks => {
+      if (!tasks.length) {
+        content.innerHTML = `
+          <h3>Client Tasks</h3>
+          <p>No tasks created yet.</p>
+        `;
+        return;
+      }
+
+      let rows = tasks.map(t => `
+        <tr>
+          <td>${t.title}</td>
+          <td>${t.status}</td>
+          <td>${new Date(t.start_datetime).toLocaleString()}</td>
+          <td>${new Date(t.end_datetime).toLocaleString()}</td>
+        </tr>
+      `).join("");
+
+      content.innerHTML = `
+        <h3>Client Tasks</h3>
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th align="left">Title</th>
+              <th align="left">Status</th>
+              <th align="left">Start</th>
+              <th align="left">End</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    });
+}
   if (tab === "jobcards") {
     loadClientJobcards();
   }
@@ -206,9 +261,9 @@ function showInfo(data) {
   const content = document.getElementById("tabContent");
   content.innerHTML = `
     <h3>Client Information</h3>
-    <p><strong>Address:</strong> ${data.site_address || "-"}</p>
+    <p><strong>Address:</strong> ${data.physical_address || "-"}</p>
     <p><strong>Contact:</strong> ${data.contact_person || "-"}</p>
-    <p><strong>Phone:</strong> ${data.contact_number || "-"}</p>
+    <p><strong>Phone:</strong> ${data.phone || "-"}</p>
     <p><strong>Email:</strong> ${data.email || "-"}</p>
   `;
 }
