@@ -59,12 +59,15 @@ def get_tasks_for_client(
 @router.get("/technicians")
 def get_company_technicians(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
+
+    company_id = current_user["company_id"]
+
     technicians = (
         db.query(User)
         .filter(
-            User.company_id == current_user.company_id,
+            User.company_id == company_id,
             User.role == "technician",
             User.is_active == True
         )
