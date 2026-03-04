@@ -13,14 +13,14 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 def create_task(
     task: TaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
 
     if task.end_datetime <= task.start_datetime:
         raise HTTPException(status_code=400, detail="End must be after start")
 
     new_task = Task(
-        company_id=current_user.company_id,
+        company_id=current_user["company_id"],
         client_id=task.client_id,
         title=task.title,
         description=task.description,
@@ -29,7 +29,7 @@ def create_task(
         start_datetime=task.start_datetime,
         end_datetime=task.end_datetime,
         assigned_to=task.assigned_to,
-        created_by=current_user.id
+        created_by=current_user["id"]
     )
 
     db.add(new_task)
@@ -37,6 +37,7 @@ def create_task(
     db.refresh(new_task)
 
     return new_task
+
 @router.get("/client/{client_id}", response_model=list[TaskOut])
 def get_tasks_for_client(
     client_id: int,
