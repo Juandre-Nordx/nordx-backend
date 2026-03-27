@@ -186,7 +186,7 @@ async def create_jobcard(
                 to_email=company.contact_email,
                 company_name=company.name,
                 job_number=jobcard.job_number,
-                pdf_path=pdf_path,
+                jobcard_id=jobcard.id,
             )
             print("📧 Jobcard email sent")
         except Exception as e:
