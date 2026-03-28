@@ -10,38 +10,25 @@ ENV = os.getenv("ENVIRONMENT", "production")
 
 
 def send_jobcard_email(to_email: str, company_name: str, job_number: str, jobcard_id: int):
-    download_link = f"{API_BASE_URL}/jobcards/{jobcard_id}/pdf"
+    download_url = f"{API_BASE_URL}/jobcards/{jobcard_id}/pdf"
+
+    body = f"""Hello {company_name},
+
+Your job card {job_number} is ready for download.
+
+Download URL:
+{download_url}
+
+Copy and paste the URL above into your browser to download the PDF.
+
+Regards,
+NORDX"""
 
     resend.Emails.send({
         "from": f"NORDX <{EMAIL_FROM}>",
         "to": [to_email],
         "subject": f"Job Card {job_number} — NORDX",
-        "html": f"""
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                <h2 style="color: #1a1a1a;">Job Card {job_number}</h2>
-                <p>Hello {company_name},</p>
-                <p>
-                    Your job card <strong>{job_number}</strong> has been completed and is ready for download.
-                </p>
-                <p style="margin: 24px 0;">
-                    <a href="{download_link}"
-                       style="background-color: #0057ff; color: #ffffff; padding: 12px 24px;
-                              text-decoration: none; border-radius: 4px; font-weight: bold;">
-                        Download Job Card PDF
-                    </a>
-                </p>
-                <p style="color: #666; font-size: 13px;">
-                    This link is available for 7 days. If you have trouble with the button above,
-                    copy and paste the following URL into your browser:<br>
-                    <a href="{download_link}" style="color: #0057ff;">{download_link}</a>
-                </p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
-                <p style="color: #999; font-size: 12px;">
-                    Regards,<br>
-                    <strong>NORDX</strong>
-                </p>
-            </div>
-        """,
+        "text": body,
     })
 
 
