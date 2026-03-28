@@ -210,25 +210,13 @@ async def create_jobcard(
 def get_jobcard_pdf(
     jobcard_id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
-    jobcard = (
-        db.query(JobCard)
-        .filter(
-            JobCard.id == jobcard_id,
-            JobCard.company_id == current_user["company_id"],
-        )
-        .first()
-    )
+    jobcard = db.query(JobCard).filter(JobCard.id == jobcard_id).first()
 
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
 
-    pdf_path = os.path.join(
-        UPLOAD_DIR,
-        "jobcards",
-        f"{jobcard.job_number}.pdf"
-    )
+    pdf_path = os.path.join(UPLOAD_DIR, "jobcards", f"{jobcard.job_number}.pdf")
 
     if not os.path.exists(pdf_path):
         raise HTTPException(status_code=404, detail="PDF missing")
