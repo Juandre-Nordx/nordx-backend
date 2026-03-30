@@ -8,8 +8,11 @@ from fastapi.responses import JSONResponse
 from backend.database import SessionLocal
 from backend.models import User
 from backend.services.email_service import send_reset_email
+from backend.logger import get_logger
 from uuid import uuid4
 from datetime import datetime, timedelta
+
+logger = get_logger("auth")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -63,8 +66,16 @@ def login(
         .first()
     )
 
+    client_ip = request.client.host if request.client else "unknown"
+
     if not user or not verify_password(password, user.password_hash):
         db.close()
+        logger.warning(
+            "LOGIN FAILED | email=%s | ip=%s | reason=%s",
+            email,
+            client_ip,
+            "user not found" if not user else "wrong password",
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Store minimal safe session data
@@ -74,6 +85,15 @@ def login(
         "role": user.role,
         "company_id": user.company_id,
     }
+
+    logger.info(
+        "LOGIN SUCCESS | user_id=%s | email=%s | role=%s | company_id=%s | ip=%s",
+        user.id,
+        user.email,
+        user.role,
+        user.company_id,
+        client_ip,
+    )
 
     db.close()
     return {

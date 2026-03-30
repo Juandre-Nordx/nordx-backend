@@ -9,10 +9,12 @@ from fastapi import Request
 from backend.routes.auth import get_current_user
 from backend.services.email_service import send_jobcard_email
 from backend.models import Company
+from backend.logger import get_logger
 import os
 import uuid
 import base64
 
+logger = get_logger("jobcards")
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")
@@ -142,36 +144,56 @@ async def create_jobcard(
         status="submitted",
     )
 
-    db.add(jobcard)
-    db.commit()
-    db.refresh(jobcard)
+    try:
+        db.add(jobcard)
+        db.commit()
+        db.refresh(jobcard)
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            "JOBCARD DB ERROR | user_id=%s | email=%s | client=%s | technician=%s | error=%s",
+            current_user["id"],
+            current_user["email"],
+            client_name,
+            technician_name,
+            exc,
+        )
+        raise HTTPException(status_code=500, detail="Failed to save job card")
 
-    # -------- PDF GENERATION (ONLY PLACE IT BELONGS) --------
+    logger.info(
+        "JOBCARD SAVED | job_number=%s | user_id=%s | email=%s | client=%s | site=%s | technician=%s | hours=%.2f",
+        jobcard.job_number,
+        current_user["id"],
+        current_user["email"],
+        client_name,
+        site_address,
+        technician_name,
+        hours_worked,
+    )
+
+    # -------- PDF GENERATION --------
     pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
     os.makedirs(pdf_dir, exist_ok=True)
 
     pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
 
     try:
-        print("📄 Generating PDF:", pdf_path)
         pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
 
         if not os.path.exists(pdf_path):
-            raise RuntimeError("PDF not created")
+            raise RuntimeError("PDF file was not written to disk")
 
-        print("✅ PDF generated")
+        logger.info("JOBCARD PDF OK | job_number=%s | path=%s", jobcard.job_number, pdf_path)
 
-    except Exception:
+    except Exception as exc:
         import traceback
-        print("❌ PDF generation failed")
-        traceback.print_exc()
+        logger.error(
+            "JOBCARD PDF FAILED | job_number=%s | error=%s\n%s",
+            jobcard.job_number,
+            exc,
+            traceback.format_exc(),
+        )
 
-    #return {
-    #    "status": "success",
-    #    "job_number": jobcard.job_number,
-    #    "hours_worked": hours_worked,
-    #}
-    
     # --------------------------------
     # EMAIL PDF TO COMPANY
     # --------------------------------
@@ -186,14 +208,29 @@ async def create_jobcard(
                     job_number=jobcard.job_number,
                     pdf_path=pdf_path,
                 )
-                print("📧 Jobcard email sent")
-            except Exception as e:
-                print("❌ Failed to send jobcard email:", e)
+                logger.info(
+                    "JOBCARD EMAIL SENT | job_number=%s | to=%s",
+                    jobcard.job_number,
+                    company.contact_email,
+                )
+            except Exception as exc:
+                logger.error(
+                    "JOBCARD EMAIL FAILED | job_number=%s | to=%s | error=%s",
+                    jobcard.job_number,
+                    company.contact_email,
+                    exc,
+                )
         else:
-            print("⚠️ PDF not found — skipping email")
+            logger.warning("JOBCARD EMAIL SKIPPED | job_number=%s | reason=PDF not found", jobcard.job_number)
     else:
-        print("⚠️ No company contact_email configured — skipping email")
+        logger.warning("JOBCARD EMAIL SKIPPED | job_number=%s | reason=no company email configured", jobcard.job_number)
 
+    logger.info(
+        "JOBCARD SUBMIT SUCCESS | job_number=%s | user_id=%s | email=%s",
+        jobcard.job_number,
+        current_user["id"],
+        current_user["email"],
+    )
 
     return {
         "status": "success",
