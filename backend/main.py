@@ -8,26 +8,27 @@ from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
 
-ENV = os.getenv("ENVIRONMENT", "production")
+ENV = os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
-    title="JobCard Pro API " if ENV == "production" else "JobCard Pro API",
+    title="JobCard Pro API",
     version="0.1.0"
 )
 
 
-UPLOAD_DIR = Path("/data/uploads")
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------------------------
 # 1️⃣ SESSIONS FIRST (required for request.session)
 # -------------------------------------------------
-SESSION_DOMAIN = ".nordx.co.za" if ENV in ("static", "production") else None
+IS_PROD = ENV in ("static", "production")
+SESSION_DOMAIN = ".nordx.co.za" if IS_PROD else None
 
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "dev-secret"),
-    same_site="none",
-    https_only=True,
+    same_site="none" if IS_PROD else "lax",
+    https_only=IS_PROD,
     domain=SESSION_DOMAIN,
     max_age=60 * 60 * 12,  # 12 hours
 )
@@ -37,16 +38,13 @@ app.add_middleware(
 # 2️⃣ CORS SECOND
 # -------------------------------------------------
 
-
 ALLOWED_ORIGINS = [
     "https://nordx.co.za",
     "https://api01.nordx.co.za",
 ]
 
-if ENV == "beta":
-    ALLOWED_ORIGINS.extend([
-        "https://api01.nordx.co.za",
-    ])
+if not IS_PROD:
+    ALLOWED_ORIGINS = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,7 +64,7 @@ app.include_router(jobcards.router)
 app.include_router(users.router)
 
 # -------------------------------------------------
-# 4️⃣ HEALTH CHECK (Railway likes this)
+# 4️⃣ HEALTH CHECK
 # -------------------------------------------------
 @app.get("/health")
 def health():
@@ -77,18 +75,15 @@ def health():
 
 
 # -------------------------------------------------
-# 5 Mount img to upload
+# 5️⃣ Mount uploads
 # -------------------------------------------------
 app.mount(
     "/uploads",
     StaticFiles(directory=UPLOAD_DIR),
     name="uploads"
 )
-## -------------------------------------------------
-## 6️⃣ INIT BETA DATABASE SCHEMA (ONE-TIME)
-## -------------------------------------------------
-#if ENV == "beta":
-#    Base.metadata.create_all(bind=engine)
 
-
-
+# -------------------------------------------------
+# 6️⃣ INIT DATABASE SCHEMA
+# -------------------------------------------------
+Base.metadata.create_all(bind=engine)

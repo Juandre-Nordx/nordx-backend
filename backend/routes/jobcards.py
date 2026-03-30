@@ -15,11 +15,8 @@ import base64
 
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
-UPLOAD_DIR = "/data/uploads"
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-if not os.path.exists(UPLOAD_DIR):
-    raise RuntimeError("Uploads directory not mounted — check Railway Volume")
 
 # =========================
 # HELPERS

@@ -19,7 +19,8 @@ from fastapi import Depends
 router = APIRouter(prefix="/admin", tags=["Admin"])
 UPLOAD_BASE = "/uploads"
 
-UPLOAD_DIR = Path("/data/uploads/company")
+import os as _os
+UPLOAD_DIR = Path(_os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")) / "company"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -272,7 +273,7 @@ def admin_get_jobcard_pdf(
         raise HTTPException(status_code=404, detail="Job card not found")
 
     pdf_path = os.path.join(
-        "/data/uploads",
+        os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads"),
         "jobcards",
         f"{jobcard.job_number}.pdf"
     )

@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 from io import BytesIO
 from datetime import datetime
+import os
 
 
 # ---------------------------------
@@ -80,7 +81,7 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
 def generate_jobcard_pdf(jobcard, output_path: str):
     c = canvas.Canvas(output_path, pagesize=A4)
     width, height = A4
-    BASE_DIR = Path("/data")
+    BASE_DIR = Path(os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")).parent
 
     margin_x = 40
     y = height - 40
