@@ -1,34 +1,42 @@
 import os
+import base64
+import zipfile
+import io
 import resend
 
 resend.api_key = os.getenv("RESEND_API_KEY")
 
 EMAIL_FROM = os.getenv("EMAIL_FROM")
 RESET_URL = os.getenv("RESET_URL")
-API_BASE_URL = os.getenv("API_BASE_URL", "").rstrip("/")
 ENV = os.getenv("ENVIRONMENT", "production")
 
 
-def send_jobcard_email(to_email: str, company_name: str, job_number: str, jobcard_id: int):
-    download_url = f"{API_BASE_URL}/jobcards/{jobcard_id}/pdf"
+def send_jobcard_email(to_email: str, company_name: str, job_number: str, pdf_path: str):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.write(pdf_path, arcname=f"{job_number}.pdf")
+    zip_bytes = zip_buffer.getvalue()
+    zip_b64 = base64.b64encode(zip_bytes).decode("utf-8")
 
-    body = f"""Hello {company_name},
-
-Your job card {job_number} is ready for download.
-
-Download URL:
-{download_url}
-
-Copy and paste the URL above into your browser to download the PDF.
-
-Regards,
-NORDX"""
+    html_body = f"""
+    <p>Hello {company_name},</p>
+    <p>Your job card <strong>{job_number}</strong> has been submitted successfully.</p>
+    <p>Please find the job card PDF attached to this email as a zip file.</p>
+    <br>
+    <p>Regards,<br>NORDX</p>
+    """
 
     resend.Emails.send({
         "from": f"NORDX <{EMAIL_FROM}>",
         "to": [to_email],
         "subject": f"Job Card {job_number} — NORDX",
-        "text": body,
+        "html": html_body,
+        "attachments": [
+            {
+                "filename": f"{job_number}.zip",
+                "content": zip_b64,
+            }
+        ],
     })
 
 
