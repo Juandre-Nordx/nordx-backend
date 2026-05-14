@@ -8,6 +8,7 @@ from backend.models import Company, User
 from pathlib import Path
 from fastapi import UploadFile, File, Form
 from backend.models import Company
+from datetime import datetime
 import os
 import uuid
 from fastapi import APIRouter, Request, Depends
@@ -144,6 +145,137 @@ def get_jobcard(
         "created_at": jc.created_at.isoformat(),
         "pdf": f"/uploads/jobcards/{jc.job_number}.pdf",
     }
+
+@router.get("/debug/volume-check")
+def debug_volume_check(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Diagnostic endpoint — lists everything under /data so we can verify
+    that uploaded files are actually landing on the volume.
+    """
+    require_admin(request)
+
+    DATA_ROOT = Path("/data")
+    SUBDIRS = ["before", "after", "materials", "signatures", "jobcards"]
+
+    # ── 1. Does /data exist at all? ──────────────────────────────────────
+    if not DATA_ROOT.exists():
+        return {
+            "data_root_exists": False,
+            "data_root": str(DATA_ROOT),
+            "error": "/data directory does not exist on this container",
+        }
+
+    # ── 2. Basic root info ───────────────────────────────────────────────
+    root_stat = DATA_ROOT.stat()
+    result = {
+        "data_root_exists": True,
+        "data_root": str(DATA_ROOT),
+        "data_root_permissions": oct(root_stat.st_mode),
+        "subdirectories": {},
+        "total_files": 0,
+        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /home/runner/workspace/uploads)"),
+    }
+
+    # ── 3. Walk each expected subdirectory ───────────────────────────────
+    for subdir_name in SUBDIRS:
+        subdir_path = DATA_ROOT / subdir_name
+        entry: dict = {
+            "path": str(subdir_path),
+            "exists": subdir_path.exists(),
+            "file_count": 0,
+            "total_size_bytes": 0,
+            "sample_files": [],
+        }
+
+        if subdir_path.exists():
+            try:
+                stat = subdir_path.stat()
+                entry["permissions"] = oct(stat.st_mode)
+                files = sorted(subdir_path.iterdir())
+                file_entries = [f for f in files if f.is_file()]
+                entry["file_count"] = len(file_entries)
+                entry["total_size_bytes"] = sum(f.stat().st_size for f in file_entries)
+
+                # Up to 5 sample files with metadata
+                for f in file_entries[:5]:
+                    f_stat = f.stat()
+                    entry["sample_files"].append({
+                        "name": f.name,
+                        "size_bytes": f_stat.st_size,
+                        "modified": datetime.utcfromtimestamp(f_stat.st_mtime).isoformat() + "Z",
+                        "readable": os.access(f, os.R_OK),
+                    })
+
+                result["total_files"] += entry["file_count"]
+            except PermissionError as exc:
+                entry["error"] = f"Permission denied: {exc}"
+        else:
+            entry["error"] = "Directory does not exist"
+
+        result["subdirectories"][subdir_name] = entry
+
+    # ── 4. Cross-check DB image paths against the filesystem ─────────────
+    jobcards = db.query(JobCard).order_by(JobCard.created_at.desc()).limit(10).all()
+    db_checks = []
+
+    for jc in jobcards:
+        photos_to_check = []
+        for url in (jc.before_photos or []):
+            photos_to_check.append(("before_photo", url))
+        for url in (jc.after_photos or []):
+            photos_to_check.append(("after_photo", url))
+        for url in (jc.material_photos or []):
+            photos_to_check.append(("material_photo", url))
+        if jc.signature_path:
+            photos_to_check.append(("signature", jc.signature_path))
+
+        file_results = []
+        for kind, url_path in photos_to_check:
+            # DB stores paths like /uploads/before/<file> — map to /data/before/<file>
+            relative = url_path.lstrip("/")
+            if relative.startswith("uploads/"):
+                relative = relative[len("uploads/"):]
+            disk_path = DATA_ROOT / relative
+            file_results.append({
+                "type": kind,
+                "db_path": url_path,
+                "disk_path": str(disk_path),
+                "exists_on_disk": disk_path.exists(),
+                "readable": os.access(disk_path, os.R_OK) if disk_path.exists() else False,
+            })
+
+        db_checks.append({
+            "job_number": jc.job_number,
+            "id": jc.id,
+            "files": file_results,
+        })
+
+    result["db_image_checks"] = db_checks
+
+    # ── 5. Full recursive file tree (capped at 200 entries) ──────────────
+    all_files = []
+    for f in DATA_ROOT.rglob("*"):
+        if f.is_file():
+            try:
+                f_stat = f.stat()
+                all_files.append({
+                    "path": str(f.relative_to(DATA_ROOT)),
+                    "size_bytes": f_stat.st_size,
+                    "modified": datetime.utcfromtimestamp(f_stat.st_mtime).isoformat() + "Z",
+                })
+            except Exception:
+                pass
+        if len(all_files) >= 200:
+            break
+
+    result["all_files_on_volume"] = all_files
+    result["all_files_truncated"] = len(all_files) >= 200
+
+    return result
+
 
 @router.get("/debug/jobcards")
 def debug_jobcards(db: Session = Depends(get_db)):
