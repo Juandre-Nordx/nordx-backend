@@ -79,7 +79,7 @@ def health():
 # -------------------------------------------------
 app.mount(
     "/uploads",
-    StaticFiles(directory="/data"),
+    StaticFiles(directory="/data/uploads"),
     name="uploads"
 )
 
