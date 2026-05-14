@@ -77,9 +77,16 @@ def health():
 # -------------------------------------------------
 # 5️⃣ Mount uploads
 # -------------------------------------------------
+# Ensure the uploads directory exists before mounting so that StaticFiles
+# doesn't fail silently when the volume is freshly attached or the path
+# hasn't been written to yet.
+uploads_dir = Path("/data/uploads")
+uploads_dir.mkdir(parents=True, exist_ok=True)
+print(f"Uploads directory: {uploads_dir} (exists: {uploads_dir.exists()})")
+
 app.mount(
     "/uploads",
-    StaticFiles(directory="/data/uploads"),
+    StaticFiles(directory=str(uploads_dir)),
     name="uploads"
 )
 
