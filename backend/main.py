@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -103,21 +102,6 @@ def serve_upload(file_path: str):
 
 
 # -------------------------------------------------
-# 6️⃣ Mount uploads
-# -------------------------------------------------
-# Ensure the uploads directory exists before mounting so that StaticFiles
-# doesn't fail silently when the volume is freshly attached or the path
-# hasn't been written to yet.
-uploads_dir = ensure_upload_root()
-print(f"Uploads directory: {uploads_dir} (exists: {uploads_dir.exists()})")
-
-app.mount(
-    "/uploads",
-    StaticFiles(directory=str(uploads_dir)),
-    name="uploads"
-)
-
-# -------------------------------------------------
-# 7️⃣ INIT DATABASE SCHEMA
+# 6️⃣ INIT DATABASE SCHEMA
 # -------------------------------------------------
 Base.metadata.create_all(bind=engine)
