@@ -1,27 +1,136 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from backend.database import get_db
-from backend.models import JobCard
-from backend.models import Company, User
-from fastapi import UploadFile, File, Form
-from backend.models import Company
-from datetime import datetime
 import os
 import uuid
-from fastapi import APIRouter, Request, Depends
-from backend.database import SessionLocal
-from backend.routes.auth import require_admin
-from backend.routes.auth import get_current_user
+from datetime import datetime
+from html import escape
+from pathlib import Path
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from backend.database import SessionLocal, get_db
+from backend.models import Company, JobCard, User
+from backend.routes.auth import get_current_user, require_admin
 from backend.storage import (
     UPLOAD_ROOT,
     ensure_upload_root,
     ensure_upload_subdir,
     public_upload_path,
     resolve_upload_path,
+    upload_relative_path,
 )
-from fastapi import Depends
+
+
+def _format_utc_timestamp(timestamp: float) -> str:
+    return datetime.utcfromtimestamp(timestamp).isoformat() + "Z"
+
+
+def _safe_upload_file_path(file_path: str) -> tuple[Path, Path]:
+    relative = upload_relative_path(f"/uploads/{file_path}")
+    upload_root = ensure_upload_root().resolve()
+    disk_path = (upload_root / relative).resolve()
+
+    try:
+        disk_path.relative_to(upload_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Upload not found") from exc
+
+    return relative, disk_path
+
+
+def _upload_public_url(relative_path: Path) -> str:
+    return f"/uploads/{relative_path.as_posix()}"
+
+
+def _upload_inspect_url(relative_path: Path) -> str:
+    return f"/admin/debug/upload-file/{quote(relative_path.as_posix(), safe='/')}"
+
+
+def _build_upload_tree(root_path: Path):
+    counters = {
+        "total_files": 0,
+        "total_directories": 0,
+        "total_size_bytes": 0,
+    }
+
+    def build_node(path: Path):
+        relative_path = path.relative_to(root_path)
+        relative_text = (
+            "" if relative_path.as_posix() == "." else relative_path.as_posix()
+        )
+
+        node = {
+            "name": path.name or str(root_path),
+            "type": "directory" if path.is_dir() else "file",
+            "relative_path": relative_text,
+            "disk_path": str(path),
+            "permissions": oct(path.stat().st_mode),
+            "modified": _format_utc_timestamp(path.stat().st_mtime),
+            "readable": os.access(path, os.R_OK),
+        }
+
+        if path.is_dir():
+            counters["total_directories"] += 1
+            children = sorted(
+                path.iterdir(),
+                key=lambda child: (child.is_file(), child.name.lower()),
+            )
+            node["children"] = [build_node(child) for child in children]
+            return node
+
+        file_size = path.stat().st_size
+        counters["total_files"] += 1
+        counters["total_size_bytes"] += file_size
+        node.update({
+            "size_bytes": file_size,
+            "public_url": _upload_public_url(relative_path),
+            "inspect_url": _upload_inspect_url(relative_path),
+        })
+        return node
+
+    tree = build_node(root_path)
+    return tree, counters
+
+
+def _render_upload_tree_html(node: dict, is_root: bool = False) -> str:
+    if node["type"] == "directory":
+        label = escape(node["name"])
+        children = "".join(
+            _render_upload_tree_html(child) for child in node.get("children", [])
+        )
+        open_attr = " open" if is_root else ""
+        return (
+            f"<details{open_attr}><summary>📁 {label}</summary>"
+            f"<ul>{children}</ul></details>"
+        )
+
+    name = escape(node["name"])
+    relative_path = escape(node["relative_path"])
+    size_bytes = node.get("size_bytes", 0)
+    public_url = escape(node["public_url"], quote=True)
+    inspect_url = escape(node["inspect_url"], quote=True)
+    lower_name = name.lower()
+    preview = ""
+
+    if lower_name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+        preview = (
+            f'<a href="{public_url}" target="_blank">'
+            f'<img src="{public_url}" loading="lazy" alt="{name}"></a>'
+        )
+    elif lower_name.endswith(".pdf"):
+        preview = f'<a class="pill" href="{public_url}" target="_blank">Open PDF</a>'
+
+    return (
+        "<li>"
+        f"<div class=\"file-row\"><span>📄 <strong>{name}</strong></span>"
+        f"<span class=\"meta\">{size_bytes:,} bytes · {relative_path}</span>"
+        f"<span><a href=\"{public_url}\" target=\"_blank\">public</a> · "
+        f"<a href=\"{inspect_url}\" target=\"_blank\">inspect</a></span></div>"
+        f"{preview}"
+        "</li>"
+    )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 UPLOAD_BASE = "/uploads"
@@ -276,6 +385,106 @@ def debug_volume_check(
     result["all_files_truncated"] = len(all_files) >= 200
 
     return result
+
+
+@router.get("/debug/upload-tree")
+def debug_upload_tree(request: Request):
+    """Return the complete upload volume as a nested file tree."""
+    require_admin(request)
+
+    data_root = ensure_upload_root()
+    if not data_root.exists():
+        return {
+            "data_root_exists": False,
+            "data_root": str(data_root),
+            "error": (
+                f"Configured upload directory {data_root} does not exist "
+                "on this container"
+            ),
+        }
+
+    tree, counters = _build_upload_tree(data_root)
+    root_stat = data_root.stat()
+    return {
+        "data_root_exists": True,
+        "data_root": str(data_root),
+        "data_root_permissions": oct(root_stat.st_mode),
+        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data/uploads)"),
+        "mounted_upload_root": str(UPLOAD_ROOT),
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        **counters,
+        "tree": tree,
+    }
+
+
+@router.get("/debug/upload-browser", response_class=HTMLResponse)
+def debug_upload_browser(request: Request):
+    """Render a clickable upload volume browser with image/PDF previews."""
+    require_admin(request)
+
+    data_root = ensure_upload_root()
+    if not data_root.exists():
+        return HTMLResponse(
+            (
+                "<h1>Upload volume missing</h1>"
+                f"<p>{escape(str(data_root))} does not exist.</p>"
+            ),
+            status_code=404,
+        )
+
+    tree, counters = _build_upload_tree(data_root)
+    tree_html = _render_upload_tree_html(tree, is_root=True)
+    html = f"""
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset=\"utf-8\">
+        <title>Upload Volume Browser</title>
+        <style>
+          body {{ font-family: Arial, sans-serif; margin: 24px; color: #172033; }}
+          h1 {{ margin-bottom: 6px; }}
+          .summary {{ background: #f4f7fb; border: 1px solid #d8e0ec; border-radius: 8px; padding: 12px; margin-bottom: 18px; }}
+          details {{ margin: 6px 0 6px 18px; }}
+          summary {{ cursor: pointer; font-weight: 700; }}
+          ul {{ list-style: none; padding-left: 18px; }}
+          li {{ border-left: 2px solid #e4e9f2; margin: 8px 0; padding: 8px 0 8px 12px; }}
+          .file-row {{ display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) 150px; gap: 12px; align-items: center; }}
+          .meta {{ color: #65738a; font-size: 13px; overflow-wrap: anywhere; }}
+          img {{ display: block; max-width: 220px; max-height: 160px; object-fit: contain; margin-top: 8px; border: 1px solid #d8e0ec; border-radius: 6px; }}
+          a {{ color: #0b63ce; }}
+          .pill {{ display: inline-block; margin-top: 8px; padding: 4px 8px; background: #eef5ff; border-radius: 999px; text-decoration: none; }}
+        </style>
+      </head>
+      <body>
+        <h1>Upload Volume Browser</h1>
+        <div class=\"summary\">
+          <div><strong>Root:</strong> {escape(str(data_root))}</div>
+          <div><strong>Total files:</strong> {counters['total_files']:,}</div>
+          <div><strong>Total directories:</strong> {counters['total_directories']:,}</div>
+          <div><strong>Total size:</strong> {counters['total_size_bytes']:,} bytes</div>
+          <div><strong>JSON tree:</strong> <a href=\"/admin/debug/upload-tree\">/admin/debug/upload-tree</a></div>
+        </div>
+        {tree_html}
+      </body>
+    </html>
+    """
+    return HTMLResponse(html)
+
+
+@router.get("/debug/upload-file/{file_path:path}")
+def debug_upload_file(file_path: str, request: Request):
+    """Open a single file from the configured upload volume for inspection."""
+    require_admin(request)
+
+    try:
+        _relative, disk_path = _safe_upload_file_path(file_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Upload not found") from exc
+
+    if not disk_path.is_file():
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    return FileResponse(str(disk_path), filename=disk_path.name)
 
 
 @router.get("/debug/jobcards")

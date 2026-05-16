@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from urllib.parse import unquote, urlparse
 
 
 PUBLIC_UPLOAD_PREFIX = "/uploads"
@@ -30,11 +31,24 @@ def public_upload_path(subfolder: str, filename: str) -> str:
 
 
 def upload_relative_path(db_path: str) -> Path:
-    """Convert a database URL like /uploads/before/a.jpg to before/a.jpg."""
-    normalized = str(db_path).replace("\\", "/").lstrip("/")
+    """Convert a public upload URL like /uploads/before/a.jpg to before/a.jpg."""
+    path_text = str(db_path or "")
+    parsed = urlparse(path_text)
+    normalized = unquote(parsed.path or path_text).replace("\\", "/").lstrip("/")
+
     if normalized.startswith("uploads/"):
         normalized = normalized[len("uploads/"):]
-    return Path(normalized)
+
+    relative = PurePosixPath(normalized)
+    unsafe_path = (
+        not normalized
+        or relative.is_absolute()
+        or any(part in ("", ".", "..") for part in relative.parts)
+    )
+    if unsafe_path:
+        raise ValueError("Invalid upload path")
+
+    return Path(*relative.parts)
 
 
 def resolve_upload_path(db_path: str) -> Path:
@@ -48,7 +62,12 @@ def resolve_upload_path(db_path: str) -> Path:
     """
     path_text = str(db_path)
     absolute = Path(path_text)
-    if absolute.is_absolute() and absolute.exists() and not path_text.startswith(PUBLIC_UPLOAD_PREFIX):
+    is_private_absolute_path = (
+        absolute.is_absolute()
+        and absolute.exists()
+        and not path_text.startswith(PUBLIC_UPLOAD_PREFIX)
+    )
+    if is_private_absolute_path:
         return absolute
 
     relative = upload_relative_path(path_text)

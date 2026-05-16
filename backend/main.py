@@ -1,12 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
-from backend.storage import ensure_upload_root
+from backend.storage import ensure_upload_root, resolve_upload_path
 
 ENV = os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
@@ -72,7 +73,25 @@ def health():
 
 
 # -------------------------------------------------
-# 5️⃣ Mount uploads
+# 5️⃣ Upload file serving
+# -------------------------------------------------
+@app.get("/uploads/{file_path:path}", include_in_schema=False)
+@app.head("/uploads/{file_path:path}", include_in_schema=False)
+def serve_upload(file_path: str):
+    """Serve uploaded files from the configured upload root or legacy /data layout."""
+    try:
+        upload_path = resolve_upload_path(f"/uploads/{file_path}")
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Upload not found") from exc
+
+    if not upload_path.is_file():
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    return FileResponse(str(upload_path))
+
+
+# -------------------------------------------------
+# 6️⃣ Mount uploads
 # -------------------------------------------------
 # Ensure the uploads directory exists before mounting so that StaticFiles
 # doesn't fail silently when the volume is freshly attached or the path
@@ -87,6 +106,6 @@ app.mount(
 )
 
 # -------------------------------------------------
-# 6️⃣ INIT DATABASE SCHEMA
+# 7️⃣ INIT DATABASE SCHEMA
 # -------------------------------------------------
 Base.metadata.create_all(bind=engine)
