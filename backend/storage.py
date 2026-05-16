@@ -8,8 +8,9 @@ from urllib.parse import unquote, urlparse
 
 
 PUBLIC_UPLOAD_PREFIX = "/uploads"
-UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "/data/uploads")).expanduser()
+UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "/data")).expanduser()
 LEGACY_DATA_ROOT = Path("/data")
+LEGACY_UPLOAD_ROOT = Path("/data/uploads")
 
 
 def ensure_upload_root() -> Path:
@@ -56,9 +57,9 @@ def resolve_upload_path(db_path: str) -> Path:
     Resolve a database-stored upload URL to its configured disk location.
 
     The database stores public URLs under /uploads/... while the app stores
-    files under UPLOAD_DIR.  If a file exists in an older /data/<subdir>
-    layout, return that legacy location so existing PDFs/debug checks keep
-    working after deployments that used the previous layout.
+    files under UPLOAD_DIR. Railway mounts the upload volume at /data by
+    default, but older deployments may have written files under
+    /data/uploads/<subdir>, so both layouts are checked.
     """
     path_text = str(db_path)
     absolute = Path(path_text)
@@ -75,8 +76,10 @@ def resolve_upload_path(db_path: str) -> Path:
     if configured_path.exists():
         return configured_path
 
-    legacy_path = LEGACY_DATA_ROOT / relative
-    if legacy_path.exists():
-        return legacy_path
+    fallback_roots = [LEGACY_DATA_ROOT, LEGACY_UPLOAD_ROOT]
+    for root in fallback_roots:
+        fallback_path = root / relative
+        if fallback_path != configured_path and fallback_path.exists():
+            return fallback_path
 
     return configured_path

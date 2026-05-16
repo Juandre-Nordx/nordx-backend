@@ -1,5 +1,7 @@
 import os
+import tempfile
 import uuid
+import zipfile
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -7,6 +9,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from starlette.background import BackgroundTask
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -131,6 +134,131 @@ def _render_upload_tree_html(node: dict, is_root: bool = False) -> str:
         f"{preview}"
         "</li>"
     )
+
+
+
+def _unique_zip_name(filename: str, used_names: set[str]) -> str:
+    if filename not in used_names:
+        used_names.add(filename)
+        return filename
+
+    stem, suffix = os.path.splitext(filename)
+    counter = 2
+    while True:
+        candidate = f"{stem}-{counter}{suffix}"
+        if candidate not in used_names:
+            used_names.add(candidate)
+            return candidate
+        counter += 1
+
+
+def _cleanup_temp_file(file_path: str) -> None:
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+
+def _jobcard_pdf_directories() -> list[Path]:
+    roots = [ensure_upload_root(), Path("/data/uploads")]
+    directories = []
+    seen = set()
+
+    for root in roots:
+        jobcards_dir = (root / "jobcards").resolve()
+        if jobcards_dir in seen:
+            continue
+        seen.add(jobcards_dir)
+        if jobcards_dir.exists():
+            directories.append(jobcards_dir)
+
+    return directories
+
+
+def _write_volume_jobcard_pdf_zip(jobcards_dirs: list[Path], zip_path: str) -> int:
+    pdf_entries = []
+    for jobcards_dir in jobcards_dirs:
+        pdf_entries.extend(
+            (jobcards_dir, pdf_path)
+            for pdf_path in sorted(jobcards_dir.rglob("*.pdf"))
+        )
+
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        manifest_lines = [
+            "NORDX jobcard PDF volume export",
+            f"Generated at: {datetime.utcnow().isoformat()}Z",
+            "Source folders:",
+            *(f"- {jobcards_dir}" for jobcards_dir in jobcards_dirs),
+            f"Included PDFs: {len(pdf_entries)}",
+            "",
+            "Included:",
+        ]
+
+        for jobcards_dir, pdf_path in pdf_entries:
+            archive_name = _unique_zip_name(pdf_path.name, used_names)
+            zf.write(pdf_path, arcname=archive_name)
+            manifest_lines.append(
+                f"- {pdf_path.relative_to(jobcards_dir)} -> {archive_name} "
+                f"({pdf_path.stat().st_size} bytes)"
+            )
+
+        zf.writestr("README.txt", "\n".join(manifest_lines) + "\n")
+
+    return len(pdf_entries)
+
+
+def _write_jobcard_pdf_zip(jobcards, zip_path: str) -> dict:
+    used_names: set[str] = set()
+    included = []
+    missing = []
+
+    with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for jobcard in jobcards:
+            pdf_path = resolve_upload_path(f"/uploads/jobcards/{jobcard.job_number}.pdf")
+            if not pdf_path.is_file():
+                missing.append({
+                    "job_number": jobcard.job_number,
+                    "expected_path": str(pdf_path),
+                })
+                continue
+
+            archive_name = _unique_zip_name(f"{jobcard.job_number}.pdf", used_names)
+            zf.write(pdf_path, arcname=archive_name)
+            included.append({
+                "job_number": jobcard.job_number,
+                "archive_name": archive_name,
+                "size_bytes": pdf_path.stat().st_size,
+            })
+
+        manifest_lines = [
+            "NORDX jobcard PDF export",
+            f"Generated at: {datetime.utcnow().isoformat()}Z",
+            f"Included PDFs: {len(included)}",
+            f"Missing PDFs: {len(missing)}",
+            "",
+            "Included:",
+        ]
+        manifest_lines.extend(
+            f"- {item['job_number']} -> {item['archive_name']} "
+            f"({item['size_bytes']} bytes)"
+            for item in included
+        )
+
+        if missing:
+            manifest_lines.extend(["", "Missing:"])
+            manifest_lines.extend(
+                f"- {item['job_number']} expected at {item['expected_path']}"
+                for item in missing
+            )
+
+        zf.writestr("README.txt", "\n".join(manifest_lines) + "\n")
+
+    return {
+        "included_count": len(included),
+        "missing_count": len(missing),
+        "included": included,
+        "missing": missing,
+    }
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 UPLOAD_BASE = "/uploads"
@@ -288,7 +416,7 @@ def debug_volume_check(
         "data_root_permissions": oct(root_stat.st_mode),
         "subdirectories": {},
         "total_files": 0,
-        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data/uploads)"),
+        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data)"),
         "mounted_upload_root": str(UPLOAD_ROOT),
     }
 
@@ -409,7 +537,7 @@ def debug_upload_tree(request: Request):
         "data_root_exists": True,
         "data_root": str(data_root),
         "data_root_permissions": oct(root_stat.st_mode),
-        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data/uploads)"),
+        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data)"),
         "mounted_upload_root": str(UPLOAD_ROOT),
         "generated_at": datetime.utcnow().isoformat() + "Z",
         **counters,
@@ -463,6 +591,7 @@ def debug_upload_browser(request: Request):
           <div><strong>Total directories:</strong> {counters['total_directories']:,}</div>
           <div><strong>Total size:</strong> {counters['total_size_bytes']:,} bytes</div>
           <div><strong>JSON tree:</strong> <a href=\"/admin/debug/upload-tree\">/admin/debug/upload-tree</a></div>
+          <div><strong>Download all jobcard PDFs:</strong> <a href=\"/admin/debug/jobcard-pdfs/download\">/admin/debug/jobcard-pdfs/download</a></div>
         </div>
         {tree_html}
       </body>
@@ -485,6 +614,28 @@ def debug_upload_file(file_path: str, request: Request):
         raise HTTPException(status_code=404, detail="Upload not found")
 
     return FileResponse(str(disk_path), filename=disk_path.name)
+
+
+@router.get("/debug/jobcard-pdfs/download")
+def debug_download_all_jobcard_pdfs(request: Request):
+    """Download every PDF currently stored in the upload volume's jobcards folder."""
+    require_admin(request)
+
+    jobcards_dirs = _jobcard_pdf_directories()
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+
+    _write_volume_jobcard_pdf_zip(jobcards_dirs, temp_zip_path)
+
+    today = datetime.utcnow().strftime("%Y%m%d")
+    filename = f"nordx-jobcard-pdfs-volume-{today}.zip"
+    return FileResponse(
+        temp_zip_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(_cleanup_temp_file, temp_zip_path),
+    )
 
 
 @router.get("/debug/jobcards")
@@ -583,6 +734,38 @@ def create_company(
         "name": company.name
     }
     #status route
+
+@router.get("/jobcards/pdfs/download")
+def admin_download_jobcard_pdfs(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Download all PDF jobcards for the current admin's company as a zip file."""
+    user = require_admin(request)
+
+    jobcards = (
+        db.query(JobCard)
+        .filter(JobCard.company_id == user["company_id"])
+        .order_by(JobCard.created_at.desc())
+        .all()
+    )
+
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+
+    _write_jobcard_pdf_zip(jobcards, temp_zip_path)
+
+    today = datetime.utcnow().strftime("%Y%m%d")
+    filename = f"nordx-jobcards-{today}.zip"
+    return FileResponse(
+        temp_zip_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(_cleanup_temp_file, temp_zip_path),
+    )
+
+
 @router.patch("/jobcards/{jobcard_id}/status")
 def update_jobcard_status(
     jobcard_id: int,
