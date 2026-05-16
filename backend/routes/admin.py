@@ -24,6 +24,7 @@ from backend.storage import (
     public_upload_path,
     resolve_upload_path,
     upload_relative_path,
+    upload_storage_roots,
 )
 
 
@@ -159,7 +160,7 @@ def _cleanup_temp_file(file_path: str) -> None:
 
 
 def _jobcard_pdf_directories() -> list[Path]:
-    roots = [ensure_upload_root(), UPLOAD_VOLUME_ROOT, Path("/data/uploads")]
+    roots = upload_storage_roots()
     directories = []
     seen = set()
 
@@ -420,6 +421,7 @@ def debug_volume_check(
         "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data volume, storing files in /data/uploads)"),
         "mounted_upload_root": str(UPLOAD_VOLUME_ROOT),
         "upload_storage_root": str(UPLOAD_ROOT),
+        "upload_storage_roots_checked": [str(root) for root in upload_storage_roots()],
     }
 
     # ── 3. Walk each expected subdirectory ───────────────────────────────
@@ -542,6 +544,7 @@ def debug_upload_tree(request: Request):
         "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data volume, storing files in /data/uploads)"),
         "mounted_upload_root": str(UPLOAD_VOLUME_ROOT),
         "upload_storage_root": str(UPLOAD_ROOT),
+        "upload_storage_roots_checked": [str(root) for root in upload_storage_roots()],
         "generated_at": datetime.utcnow().isoformat() + "Z",
         **counters,
         "tree": tree,

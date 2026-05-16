@@ -23,6 +23,28 @@ LEGACY_DATA_ROOT = UPLOAD_VOLUME_ROOT
 LEGACY_UPLOAD_ROOT = Path("/data/uploads")
 
 
+def upload_storage_roots() -> list[Path]:
+    """Return unique roots that may contain upload subfolders."""
+    roots = [
+        UPLOAD_ROOT,
+        UPLOAD_VOLUME_ROOT / "uploads",
+        UPLOAD_VOLUME_ROOT,
+        LEGACY_UPLOAD_ROOT,
+        Path("/data"),
+    ]
+    unique_roots = []
+    seen = set()
+
+    for root in roots:
+        root_key = str(root)
+        if root_key in seen:
+            continue
+        seen.add(root_key)
+        unique_roots.append(root)
+
+    return unique_roots
+
+
 def ensure_upload_root() -> Path:
     """Create and return the directory that stores upload subfolders."""
     UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
@@ -83,14 +105,10 @@ def resolve_upload_path(db_path: str) -> Path:
         return absolute
 
     relative = upload_relative_path(path_text)
-    configured_path = ensure_upload_root() / relative
-    if configured_path.exists():
-        return configured_path
+    storage_roots = upload_storage_roots()
+    for root in storage_roots:
+        candidate_path = root / relative
+        if candidate_path.exists():
+            return candidate_path
 
-    fallback_roots = [LEGACY_DATA_ROOT, LEGACY_UPLOAD_ROOT]
-    for root in fallback_roots:
-        fallback_path = root / relative
-        if fallback_path != configured_path and fallback_path.exists():
-            return fallback_path
-
-    return configured_path
+    return storage_roots[0] / relative

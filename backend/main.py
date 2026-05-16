@@ -7,7 +7,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
-from backend.storage import ensure_upload_root, resolve_upload_path
+from backend.storage import (
+    ensure_upload_root,
+    resolve_upload_path,
+    upload_storage_roots,
+)
 
 ENV = os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
@@ -85,6 +89,14 @@ def serve_upload(file_path: str):
         raise HTTPException(status_code=404, detail="Upload not found") from exc
 
     if not upload_path.is_file():
+        print(
+            "Upload not found:",
+            file_path,
+            "resolved_to=",
+            upload_path,
+            "roots_checked=",
+            [str(root) for root in upload_storage_roots()],
+        )
         raise HTTPException(status_code=404, detail="Upload not found")
 
     return FileResponse(str(upload_path))
