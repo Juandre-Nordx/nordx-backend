@@ -8,13 +8,23 @@ from urllib.parse import unquote, urlparse
 
 
 PUBLIC_UPLOAD_PREFIX = "/uploads"
-UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "/data")).expanduser()
-LEGACY_DATA_ROOT = Path("/data")
+UPLOAD_VOLUME_ROOT = Path(os.getenv("UPLOAD_DIR", "/data")).expanduser()
+UPLOAD_ROOT = Path(
+    os.getenv(
+        "UPLOAD_STORAGE_DIR",
+        str(
+            UPLOAD_VOLUME_ROOT
+            if UPLOAD_VOLUME_ROOT.name == "uploads"
+            else UPLOAD_VOLUME_ROOT / "uploads"
+        ),
+    )
+).expanduser()
+LEGACY_DATA_ROOT = UPLOAD_VOLUME_ROOT
 LEGACY_UPLOAD_ROOT = Path("/data/uploads")
 
 
 def ensure_upload_root() -> Path:
-    """Create and return the configured upload root directory."""
+    """Create and return the directory that stores upload subfolders."""
     UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
     return UPLOAD_ROOT
 
@@ -57,9 +67,10 @@ def resolve_upload_path(db_path: str) -> Path:
     Resolve a database-stored upload URL to its configured disk location.
 
     The database stores public URLs under /uploads/... while the app stores
-    files under UPLOAD_DIR. Railway mounts the upload volume at /data by
-    default, but older deployments may have written files under
-    /data/uploads/<subdir>, so both layouts are checked.
+    files in an uploads folder inside the mounted UPLOAD_DIR volume. For
+    example, UPLOAD_DIR=/data maps /uploads/before/a.jpg to
+    /data/uploads/before/a.jpg. Older direct-to-volume layouts such as
+    /data/before/a.jpg are still checked as fallbacks.
     """
     path_text = str(db_path)
     absolute = Path(path_text)
