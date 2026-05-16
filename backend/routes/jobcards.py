@@ -10,6 +10,7 @@ from backend.routes.auth import get_current_user
 from backend.services.email_service import send_jobcard_email
 from backend.models import Company
 from backend.logger import get_logger
+from backend.storage import ensure_upload_subdir, public_upload_path, resolve_upload_path
 import os
 import uuid
 import base64
@@ -17,26 +18,23 @@ import base64
 logger = get_logger("jobcards")
 router = APIRouter(prefix="/jobcards", tags=["Job Cards"])
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # =========================
 # HELPERS
 # =========================
 
 def save_upload_file(upload_file: UploadFile, subfolder: str) -> str:
-    folder = os.path.join(UPLOAD_DIR, subfolder)
-    os.makedirs(folder, exist_ok=True)
+    folder = ensure_upload_subdir(subfolder)
 
     ext = os.path.splitext(upload_file.filename)[1] or ".bin"
     filename = f"{uuid.uuid4().hex}{ext}"
-    disk_path = os.path.join(folder, filename)
+    disk_path = folder / filename
 
     with open(disk_path, "wb") as f:
         f.write(upload_file.file.read())
 
     upload_file.file.seek(0)
-    return f"/uploads/{subfolder}/{filename}"
+    return public_upload_path(subfolder, filename)
 
 
 def save_base64_image(data_url: str | None, subfolder="signatures") -> str | None:
@@ -50,16 +48,15 @@ def save_base64_image(data_url: str | None, subfolder="signatures") -> str | Non
 
     data = base64.b64decode(b64)
 
-    folder = os.path.join(UPLOAD_DIR, subfolder)
-    os.makedirs(folder, exist_ok=True)
+    folder = ensure_upload_subdir(subfolder)
 
     filename = f"{uuid.uuid4().hex}.png"
-    disk_path = os.path.join(folder, filename)
+    disk_path = folder / filename
 
     with open(disk_path, "wb") as f:
         f.write(data)
 
-    return f"/uploads/{subfolder}/{filename}"
+    return public_upload_path(subfolder, filename)
 
 
 def calculate_hours(arrival: str, departure: str) -> float:
@@ -172,15 +169,14 @@ async def create_jobcard(
     )
 
     # -------- PDF GENERATION --------
-    pdf_dir = os.path.join(UPLOAD_DIR, "jobcards")
-    os.makedirs(pdf_dir, exist_ok=True)
+    pdf_dir = ensure_upload_subdir("jobcards")
 
-    pdf_path = os.path.join(pdf_dir, f"{jobcard.job_number}.pdf")
+    pdf_path = pdf_dir / f"{jobcard.job_number}.pdf"
 
     try:
         pdf_service.generate_jobcard_pdf(jobcard, pdf_path)
 
-        if not os.path.exists(pdf_path):
+        if not pdf_path.exists():
             raise RuntimeError("PDF file was not written to disk")
 
         logger.info("JOBCARD PDF OK | job_number=%s | path=%s", jobcard.job_number, pdf_path)
@@ -200,13 +196,13 @@ async def create_jobcard(
     company = db.query(Company).filter(Company.id == company_id).first()
 
     if company and company.contact_email:
-        if os.path.exists(pdf_path):
+        if pdf_path.exists():
             try:
                 send_jobcard_email(
                     to_email=company.contact_email,
                     company_name=company.name,
                     job_number=jobcard.job_number,
-                    pdf_path=pdf_path,
+                    pdf_path=str(pdf_path),
                 )
                 logger.info(
                     "JOBCARD EMAIL SENT | job_number=%s | to=%s",
@@ -253,13 +249,13 @@ def get_jobcard_pdf(
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
 
-    pdf_path = os.path.join(UPLOAD_DIR, "jobcards", f"{jobcard.job_number}.pdf")
+    pdf_path = resolve_upload_path(f"/uploads/jobcards/{jobcard.job_number}.pdf")
 
-    if not os.path.exists(pdf_path):
+    if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF missing")
 
     return FileResponse(
-        pdf_path,
+        str(pdf_path),
         media_type="application/pdf",
         filename=f"{jobcard.job_number}.pdf",
     )

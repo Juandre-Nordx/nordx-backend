@@ -5,7 +5,6 @@ from sqlalchemy import func
 from backend.database import get_db
 from backend.models import JobCard
 from backend.models import Company, User
-from pathlib import Path
 from fastapi import UploadFile, File, Form
 from backend.models import Company
 from datetime import datetime
@@ -15,14 +14,19 @@ from fastapi import APIRouter, Request, Depends
 from backend.database import SessionLocal
 from backend.routes.auth import require_admin
 from backend.routes.auth import get_current_user
+from backend.storage import (
+    UPLOAD_ROOT,
+    ensure_upload_root,
+    ensure_upload_subdir,
+    public_upload_path,
+    resolve_upload_path,
+)
 from fastapi import Depends
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 UPLOAD_BASE = "/uploads"
 
-import os as _os
-UPLOAD_DIR = Path(_os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads")) / "company"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = ensure_upload_subdir("company")
 
 
 # ===============================
@@ -59,14 +63,13 @@ def update_company(
     company.contact_phone = contact_phone
 
     if logo:
-        os.makedirs("uploads/company", exist_ok=True)
         filename = f"{uuid.uuid4()}_{logo.filename}"
-        path = f"uploads/company/{filename}"
+        file_path = ensure_upload_subdir("company") / filename
 
-        with open(path, "wb") as f:
+        with open(file_path, "wb") as f:
             f.write(logo.file.read())
 
-        company.logo_path = "/" + path
+        company.logo_path = public_upload_path("company", filename)
 
     db.commit()
     return {"success": True}
@@ -152,20 +155,20 @@ def debug_volume_check(
     db: Session = Depends(get_db),
 ):
     """
-    Diagnostic endpoint — lists everything under /data so we can verify
-    that uploaded files are actually landing on the volume.
+    Diagnostic endpoint — lists everything under the configured upload
+    directory so we can verify files are landing on the mounted volume.
     """
     require_admin(request)
 
-    DATA_ROOT = Path("/data")
-    SUBDIRS = ["before", "after", "materials", "signatures", "jobcards"]
+    DATA_ROOT = ensure_upload_root()
+    SUBDIRS = ["before", "after", "materials", "signatures", "jobcards", "company"]
 
-    # ── 1. Does /data exist at all? ──────────────────────────────────────
+    # ── 1. Does the configured upload root exist at all? ────────────────
     if not DATA_ROOT.exists():
         return {
             "data_root_exists": False,
             "data_root": str(DATA_ROOT),
-            "error": "/data directory does not exist on this container",
+            "error": f"Configured upload directory {DATA_ROOT} does not exist on this container",
         }
 
     # ── 2. Basic root info ───────────────────────────────────────────────
@@ -176,7 +179,8 @@ def debug_volume_check(
         "data_root_permissions": oct(root_stat.st_mode),
         "subdirectories": {},
         "total_files": 0,
-        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /home/runner/workspace/uploads)"),
+        "upload_dir_env": os.getenv("UPLOAD_DIR", "(not set — defaulting to /data/uploads)"),
+        "mounted_upload_root": str(UPLOAD_ROOT),
     }
 
     # ── 3. Walk each expected subdirectory ───────────────────────────────
@@ -234,11 +238,8 @@ def debug_volume_check(
 
         file_results = []
         for kind, url_path in photos_to_check:
-            # DB stores paths like /uploads/before/<file> — map to /data/before/<file>
-            relative = url_path.lstrip("/")
-            if relative.startswith("uploads/"):
-                relative = relative[len("uploads/"):]
-            disk_path = DATA_ROOT / relative
+            # DB stores paths like /uploads/before/<file>; resolve them under UPLOAD_DIR.
+            disk_path = resolve_upload_path(url_path)
             file_results.append({
                 "type": kind,
                 "db_path": url_path,
@@ -353,7 +354,7 @@ def create_company(
         with open(file_path, "wb") as f:
             f.write(logo.file.read())
 
-        logo_path = f"/uploads/company/{filename}"
+        logo_path = public_upload_path("company", filename)
 
     company = Company(
         name=name,
@@ -404,17 +405,13 @@ def admin_get_jobcard_pdf(
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
 
-    pdf_path = os.path.join(
-        os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads"),
-        "jobcards",
-        f"{jobcard.job_number}.pdf"
-    )
+    pdf_path = resolve_upload_path(f"/uploads/jobcards/{jobcard.job_number}.pdf")
 
-    if not os.path.exists(pdf_path):
+    if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF missing")
 
     return FileResponse(
-        pdf_path,
+        str(pdf_path),
         media_type="application/pdf",
         filename=f"{jobcard.job_number}.pdf",
     )
