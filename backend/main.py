@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 
 from backend.routes import auth, admin, jobcards, users
 import os
 from backend.database import Base, engine
+from backend.storage import ensure_upload_root
 
 ENV = os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
@@ -14,9 +14,6 @@ app = FastAPI(
     version="0.1.0"
 )
 
-
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/home/runner/workspace/uploads"))
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------------------------
 # 1️⃣ SESSIONS FIRST (required for request.session)
@@ -80,8 +77,7 @@ def health():
 # Ensure the uploads directory exists before mounting so that StaticFiles
 # doesn't fail silently when the volume is freshly attached or the path
 # hasn't been written to yet.
-uploads_dir = Path("/data/uploads")
-uploads_dir.mkdir(parents=True, exist_ok=True)
+uploads_dir = ensure_upload_root()
 print(f"Uploads directory: {uploads_dir} (exists: {uploads_dir.exists()})")
 
 app.mount(

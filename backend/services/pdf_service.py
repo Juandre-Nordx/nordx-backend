@@ -4,6 +4,7 @@ from reportlab.lib.utils import ImageReader
 
 from backend.models import Company
 from backend.database import SessionLocal
+from backend.storage import resolve_upload_path, ensure_upload_root
 
 from pathlib import Path
 from PIL import Image
@@ -21,19 +22,9 @@ def get_company_by_id(company_id: int):
     return company
 
 
-def resolve_db_path(db_path: str, base_dir: Path) -> Path:
-    """
-    Resolve a database-stored path to its actual location on the volume.
-
-    Database stores paths as /uploads/before/xxx.jpg but the persistent
-    volume is mounted at /data, so the actual file is at /data/before/xxx.jpg.
-    Strip the leading /uploads/ prefix before joining with base_dir.
-    """
-    p = db_path.replace("\\", "/").lstrip("/")
-    # Strip the "uploads/" prefix that the DB stores but the volume doesn't have
-    if p.startswith("uploads/"):
-        p = p[len("uploads/"):]
-    return base_dir / p
+def resolve_db_path(db_path: str, base_dir: Path | None = None) -> Path:
+    """Resolve a database-stored /uploads/... path to the upload directory."""
+    return resolve_upload_path(db_path)
 
 
 def normalize_photo_paths(photo_field, base_dir):
@@ -93,13 +84,11 @@ def draw_photo_grid(c, image_paths, start_x, start_y, max_width=500):
 # Main PDF Generator
 # ---------------------------------
 def generate_jobcard_pdf(jobcard, output_path: str):
-    c = canvas.Canvas(output_path, pagesize=A4)
+    c = canvas.Canvas(str(output_path), pagesize=A4)
     width, height = A4
-    # Files are stored on the persistent volume mounted at /data.
-    # Database paths are prefixed with /uploads/ (e.g. /uploads/before/xxx.jpg)
-    # but the actual files live at /data/before/xxx.jpg — resolve_db_path handles
-    # stripping the /uploads/ prefix before joining with BASE_DIR.
-    BASE_DIR = Path("/data")
+    # Files are stored under the configured UPLOAD_DIR and exposed publicly
+    # with /uploads/... URLs in the database.
+    BASE_DIR = ensure_upload_root()
 
     margin_x = 40
     y = height - 40
