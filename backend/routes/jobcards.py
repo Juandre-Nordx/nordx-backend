@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models import JobCard
+from backend.models import JobCard, JobCardAudit, Company
 from backend.services import pdf_service
 from backend.services.job_number import generate_job_number
 from fastapi import Request
 from backend.routes.auth import get_current_user
 from backend.services.email_service import send_jobcard_email
-from backend.models import Company
 from backend.logger import get_logger
 from backend.storage import ensure_upload_subdir, public_upload_path, resolve_upload_path
+from datetime import datetime
 import os
 import uuid
 import base64
@@ -69,6 +69,55 @@ def calculate_hours(arrival: str, departure: str) -> float:
 
     return round(diff, 2)
 
+
+# ---------------------------------------------------------------------------
+# Internal audit helper
+# ---------------------------------------------------------------------------
+
+def _write_jobcard_audit(
+    db: Session,
+    *,
+    job_number,
+    user_id,
+    email,
+    technician_name,
+    client_name,
+    site_address,
+    hours_worked,
+    event: str,
+    status: str,
+    detail=None,
+) -> None:
+    """Persist a JobCardAudit row.  Never raises — audit must not break the flow."""
+    try:
+        row = JobCardAudit(
+            timestamp=datetime.utcnow(),
+            job_number=job_number,
+            user_id=user_id,
+            email=email,
+            technician_name=technician_name,
+            client_name=client_name,
+            site_address=site_address,
+            hours_worked=hours_worked,
+            event=event,
+            status=status,
+            detail=str(detail) if detail is not None else None,
+        )
+        db.add(row)
+        db.commit()
+    except Exception as exc:
+        logger.error(
+            "AUDIT | JOBCARD | DB_WRITE_FAILED | job_number=%s | event=%s | error=%s",
+            job_number,
+            event,
+            exc,
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
 # =========================
 # CREATE JOBCARD
 # =========================
@@ -103,6 +152,7 @@ async def create_jobcard(
 ):
     company_id = current_user["company_id"]
     created_by = current_user["id"]
+    user_email = current_user["email"]
 
     hours_worked = calculate_hours(arrival_time, departure_time)
     signature_path = save_base64_image(signature)
@@ -141,36 +191,73 @@ async def create_jobcard(
         status="submitted",
     )
 
+    # ------------------------------------------------------------------ SAVE
     try:
         db.add(jobcard)
         db.commit()
         db.refresh(jobcard)
     except Exception as exc:
         db.rollback()
+
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         logger.error(
-            "JOBCARD DB ERROR | user_id=%s | email=%s | client=%s | technician=%s | error=%s",
-            current_user["id"],
-            current_user["email"],
-            client_name,
+            "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %s | %s | DB_ERROR",
+            now,
+            "N/A",          # job_number not yet assigned
+            created_by,
+            user_email,
             technician_name,
-            exc,
+            client_name,
+            site_address,
+            hours_worked,
+            str(exc),
         )
+
+        _write_jobcard_audit(
+            db,
+            job_number=None,
+            user_id=created_by,
+            email=user_email,
+            technician_name=technician_name,
+            client_name=client_name,
+            site_address=site_address,
+            hours_worked=hours_worked,
+            event="db_error",
+            status="failure",
+            detail=str(exc),
+        )
+
         raise HTTPException(status_code=500, detail="Failed to save job card")
 
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
     logger.info(
-        "JOBCARD SAVED | job_number=%s | user_id=%s | email=%s | client=%s | site=%s | technician=%s | hours=%.2f",
+        "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | SAVED",
+        now,
         jobcard.job_number,
-        current_user["id"],
-        current_user["email"],
+        created_by,
+        user_email,
+        technician_name,
         client_name,
         site_address,
-        technician_name,
         hours_worked,
     )
 
-    # -------- PDF GENERATION --------
-    pdf_dir = ensure_upload_subdir("jobcards")
+    _write_jobcard_audit(
+        db,
+        job_number=jobcard.job_number,
+        user_id=created_by,
+        email=user_email,
+        technician_name=technician_name,
+        client_name=client_name,
+        site_address=site_address,
+        hours_worked=hours_worked,
+        event="saved",
+        status="success",
+    )
 
+    # ------------------------------------------------------------------- PDF
+    pdf_dir = ensure_upload_subdir("jobcards")
     pdf_path = pdf_dir / f"{jobcard.job_number}.pdf"
 
     try:
@@ -179,20 +266,66 @@ async def create_jobcard(
         if not pdf_path.exists():
             raise RuntimeError("PDF file was not written to disk")
 
-        logger.info("JOBCARD PDF OK | job_number=%s | path=%s", jobcard.job_number, pdf_path)
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info(
+            "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | PDF_OK",
+            now,
+            jobcard.job_number,
+            created_by,
+            user_email,
+            technician_name,
+            client_name,
+            site_address,
+            hours_worked,
+        )
+
+        _write_jobcard_audit(
+            db,
+            job_number=jobcard.job_number,
+            user_id=created_by,
+            email=user_email,
+            technician_name=technician_name,
+            client_name=client_name,
+            site_address=site_address,
+            hours_worked=hours_worked,
+            event="pdf_ok",
+            status="success",
+            detail=str(pdf_path),
+        )
 
     except Exception as exc:
         import traceback
+
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         logger.error(
-            "JOBCARD PDF FAILED | job_number=%s | error=%s\n%s",
+            "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | PDF_FAILED | %s\n%s",
+            now,
             jobcard.job_number,
+            created_by,
+            user_email,
+            technician_name,
+            client_name,
+            site_address,
+            hours_worked,
             exc,
             traceback.format_exc(),
         )
 
-    # --------------------------------
-    # EMAIL PDF TO COMPANY
-    # --------------------------------
+        _write_jobcard_audit(
+            db,
+            job_number=jobcard.job_number,
+            user_id=created_by,
+            email=user_email,
+            technician_name=technician_name,
+            client_name=client_name,
+            site_address=site_address,
+            hours_worked=hours_worked,
+            event="pdf_failed",
+            status="failure",
+            detail=str(exc),
+        )
+
+    # ------------------------------------------------------------------ EMAIL
     company = db.query(Company).filter(Company.id == company_id).first()
 
     if company and company.contact_email:
@@ -204,28 +337,144 @@ async def create_jobcard(
                     job_number=jobcard.job_number,
                     pdf_path=str(pdf_path),
                 )
+
+                now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                 logger.info(
-                    "JOBCARD EMAIL SENT | job_number=%s | to=%s",
+                    "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | EMAIL_SENT | to=%s",
+                    now,
                     jobcard.job_number,
+                    created_by,
+                    user_email,
+                    technician_name,
+                    client_name,
+                    site_address,
+                    hours_worked,
                     company.contact_email,
                 )
+
+                _write_jobcard_audit(
+                    db,
+                    job_number=jobcard.job_number,
+                    user_id=created_by,
+                    email=user_email,
+                    technician_name=technician_name,
+                    client_name=client_name,
+                    site_address=site_address,
+                    hours_worked=hours_worked,
+                    event="email_sent",
+                    status="success",
+                    detail=f"to={company.contact_email}",
+                )
+
             except Exception as exc:
+                now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                 logger.error(
-                    "JOBCARD EMAIL FAILED | job_number=%s | to=%s | error=%s",
+                    "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | EMAIL_FAILED | to=%s | error=%s",
+                    now,
                     jobcard.job_number,
+                    created_by,
+                    user_email,
+                    technician_name,
+                    client_name,
+                    site_address,
+                    hours_worked,
                     company.contact_email,
                     exc,
                 )
-        else:
-            logger.warning("JOBCARD EMAIL SKIPPED | job_number=%s | reason=PDF not found", jobcard.job_number)
-    else:
-        logger.warning("JOBCARD EMAIL SKIPPED | job_number=%s | reason=no company email configured", jobcard.job_number)
 
+                _write_jobcard_audit(
+                    db,
+                    job_number=jobcard.job_number,
+                    user_id=created_by,
+                    email=user_email,
+                    technician_name=technician_name,
+                    client_name=client_name,
+                    site_address=site_address,
+                    hours_worked=hours_worked,
+                    event="email_failed",
+                    status="failure",
+                    detail=f"to={company.contact_email} | error={exc}",
+                )
+        else:
+            now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            logger.warning(
+                "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | EMAIL_SKIPPED | reason=PDF not found",
+                now,
+                jobcard.job_number,
+                created_by,
+                user_email,
+                technician_name,
+                client_name,
+                site_address,
+                hours_worked,
+            )
+
+            _write_jobcard_audit(
+                db,
+                job_number=jobcard.job_number,
+                user_id=created_by,
+                email=user_email,
+                technician_name=technician_name,
+                client_name=client_name,
+                site_address=site_address,
+                hours_worked=hours_worked,
+                event="email_skipped",
+                status="failure",
+                detail="PDF not found on disk",
+            )
+    else:
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        logger.warning(
+            "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | EMAIL_SKIPPED | reason=no company email configured",
+            now,
+            jobcard.job_number,
+            created_by,
+            user_email,
+            technician_name,
+            client_name,
+            site_address,
+            hours_worked,
+        )
+
+        _write_jobcard_audit(
+            db,
+            job_number=jobcard.job_number,
+            user_id=created_by,
+            email=user_email,
+            technician_name=technician_name,
+            client_name=client_name,
+            site_address=site_address,
+            hours_worked=hours_worked,
+            event="email_skipped",
+            status="failure",
+            detail="no company email configured",
+        )
+
+    # ----------------------------------------------------------- FINAL SUCCESS
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     logger.info(
-        "JOBCARD SUBMIT SUCCESS | job_number=%s | user_id=%s | email=%s",
+        "AUDIT | JOBCARD | %s | %s | %s | %s | %s | %s | %s | %.2f | SUCCESS",
+        now,
         jobcard.job_number,
-        current_user["id"],
-        current_user["email"],
+        created_by,
+        user_email,
+        technician_name,
+        client_name,
+        site_address,
+        hours_worked,
+    )
+
+    _write_jobcard_audit(
+        db,
+        job_number=jobcard.job_number,
+        user_id=created_by,
+        email=user_email,
+        technician_name=technician_name,
+        client_name=client_name,
+        site_address=site_address,
+        hours_worked=hours_worked,
+        event="success",
+        status="success",
     )
 
     return {

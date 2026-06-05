@@ -104,4 +104,49 @@ class Admin(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
 
-    is_active = Column(Boolean, default=True)    
+    is_active = Column(Boolean, default=True)
+
+
+# ---------------------------------------------------------------------------
+# Audit tables — permanent records that survive container restarts / log
+# rotation.  Rows are written on every login attempt and every job-card
+# submission so the audit trail is never lost.
+# ---------------------------------------------------------------------------
+
+class LoginAudit(Base):
+    """One row per login attempt (success or failure)."""
+
+    __tablename__ = "login_audit"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    email = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    role = Column(String, nullable=True)
+    company_id = Column(Integer, nullable=True)
+
+    ip_address = Column(String, nullable=True)
+    status = Column(String, nullable=False)   # "success" | "failure"
+    reason = Column(String, nullable=True)    # e.g. "wrong password", "user not found"
+
+
+class JobCardAudit(Base):
+    """One row per job-card submission event (saved / pdf / email / final)."""
+
+    __tablename__ = "jobcard_audit"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    job_number = Column(String, nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    email = Column(String, nullable=True)
+    technician_name = Column(String, nullable=True)
+    client_name = Column(String, nullable=True)
+    site_address = Column(String, nullable=True)
+    hours_worked = Column(Float, nullable=True)
+
+    event = Column(String, nullable=False)   # "saved" | "pdf_ok" | "pdf_failed" | "email_sent" | "email_failed" | "success" | "db_error"
+    status = Column(String, nullable=False)  # "success" | "failure"
+    detail = Column(Text, nullable=True)     # extra context / error message
